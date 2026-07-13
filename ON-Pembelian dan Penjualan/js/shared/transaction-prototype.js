@@ -1104,7 +1104,8 @@ const today = new Date("2026-07-13T00:00:00");
       document.getElementById("detailCode").textContent = inv.code;
       document.getElementById("detailVendor").textContent = inv.vendor;
       document.getElementById("detailStatus").innerHTML = `<span class="badge ${statusClass(inv.transactionStatus)}">${inv.transactionStatus}</span> <span class="badge ${statusClass(status)}">${status}</span>`;
-      document.getElementById("detailRef").textContent = inv.vendorRef || "-";
+      const detailRef = document.getElementById("detailRef");
+      if (detailRef) detailRef.textContent = inv.vendorRef || "-";
       document.getElementById("detailDate").textContent = inv.date;
       document.getElementById("detailDue").innerHTML = `<span class="due-cell ${tone}" title="${dueTooltip(inv)}">${inv.dueDate}</span>`;
 
@@ -1687,7 +1688,8 @@ const today = new Date("2026-07-13T00:00:00");
 
       Object.keys(vendors).forEach(key => delete vendors[key]);
       Object.assign(vendors, salesContacts);
-      document.getElementById("vendorInput").innerHTML = salesNames.map(name => `<option>${name}</option>`).join("");
+      const salesVendorInput = document.getElementById("vendorInput");
+      if (salesVendorInput) salesVendorInput.innerHTML = salesNames.map(name => `<option>${name}</option>`).join("");
       invoices.forEach((inv, index) => {
         inv.code = inv.code.replace("PUR", "SAL");
         inv.vendor = salesNames[index % salesNames.length];
