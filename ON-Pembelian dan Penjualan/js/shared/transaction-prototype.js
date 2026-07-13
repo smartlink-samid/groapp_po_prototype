@@ -1,14 +1,19 @@
 const today = new Date("2026-07-13T00:00:00");
+    const closedBookCutoffDate = "2026-07-01";
+    const defaultPeriodStart = "2026-06-01";
+    const defaultPeriodEnd = "2026-07-31";
     let mode = "create";
     let selectedId = null;
     let itemCounter = 0;
     let activeTransactionTab = "all";
     let selectedIds = new Set();
     let periodTarget = "quick";
-    let periodDraft = { startDate: "2026-07-01", endDate: "2026-07-31" };
+    let periodDraft = { startDate: defaultPeriodStart, endDate: defaultPeriodEnd };
     let exportScope = "filtered";
     let exportFormat = "excel";
     let exportSelectedIds = null;
+    let copySourceAfterVoid = null;
+    let createSourceTemplate = null;
 
     const vendors = {
       "PT Maju Mapan": { phone: "021-5566-8800", email: "finance@majumapan.co.id" },
@@ -22,8 +27,8 @@ const today = new Date("2026-07-13T00:00:00");
     let filters = {
       sources: [],
       vendors: [],
-      startDate: "2026-07-01",
-      endDate: "2026-07-31",
+      startDate: defaultPeriodStart,
+      endDate: defaultPeriodEnd,
       paymentMethod: "all",
       accounts: [],
       products: [],
@@ -203,6 +208,10 @@ const today = new Date("2026-07-13T00:00:00");
         fee: 0,
         paidAmount: 0,
         note: "Harga dari vendor berubah, dibuat salinan baru.",
+        voidReason: "Harga dari vendor berubah, transaksi perlu dibuat ulang.",
+        voidedAt: "2026-07-06",
+        voidedBy: "Nadia Putri",
+        voidBookStatus: "open",
         items: [
           { product: "Cup Sleeve", desc: "Karton 1000 pcs", qty: 4, price: 950000 }
         ],
@@ -232,6 +241,84 @@ const today = new Date("2026-07-13T00:00:00");
         ],
         payments: [],
         changes: ["Draft pembelian dibuat"]
+      },
+      {
+        id: 9,
+        code: "PUR-2026-0009",
+        vendor: "CV Sumber Rezeki",
+        vendorRef: "SR-771",
+        date: "2026-06-18",
+        dueDate: "2026-07-02",
+        term: "14",
+        transactionStatus: "Terbit",
+        sourceData: "Unit Retail",
+        paymentMethod: "Transfer Bank",
+        cashBankAccount: "Mandiri Bisnis",
+        creator: "Nadia Putri",
+        discount: 0,
+        tax: 180000,
+        fee: 0,
+        paidAmount: 0,
+        note: "Contoh transaksi sebelum tutup buku.",
+        items: [
+          { product: "Sirup Vanilla", desc: "Botol 750 ml", qty: 24, price: 95000 }
+        ],
+        payments: [],
+        changes: ["Transaksi terbit dibuat sebelum tutup buku"]
+      },
+      {
+        id: 10,
+        code: "PUR-2026-0010",
+        vendor: "PT Bahan Kopi Nusantara",
+        vendorRef: "BKN-2026-74",
+        date: "2026-06-24",
+        dueDate: "2026-07-08",
+        term: "14",
+        transactionStatus: "Terbit",
+        sourceData: "Unit Roastery",
+        paymentMethod: "Virtual Account",
+        cashBankAccount: "BRI Utama",
+        creator: "Raka Pratama",
+        discount: 200000,
+        tax: 0,
+        fee: 0,
+        paidAmount: 2500000,
+        note: "Contoh transaksi parsial sebelum tutup buku.",
+        items: [
+          { product: "Green Bean Robusta", desc: "Karung 50 kg", qty: 2, price: 2600000 }
+        ],
+        payments: [
+          { date: "2026-06-28", amount: 2500000, account: "BRI Utama", ref: "TRX-006" }
+        ],
+        changes: ["Transaksi terbit dibuat sebelum tutup buku", "Pembayaran sebagian dicatat"]
+      },
+      {
+        id: 11,
+        code: "PUR-2026-0011",
+        vendor: "UD Sinar Jaya",
+        vendorRef: "SJ-099",
+        date: "2026-06-26",
+        dueDate: "2026-07-03",
+        term: "7",
+        transactionStatus: "Void",
+        sourceData: "Unit Retail",
+        paymentMethod: "Tunai",
+        cashBankAccount: "Kas Utama",
+        creator: "Siti Mulyani",
+        discount: 0,
+        tax: 0,
+        fee: 0,
+        paidAmount: 0,
+        note: "Contoh transaksi void setelah periode ditutup.",
+        voidReason: "Barang tidak jadi diterima dan periode transaksi sudah tutup buku.",
+        voidedAt: "2026-07-13",
+        voidedBy: "Owner/Admin",
+        voidBookStatus: "closed",
+        items: [
+          { product: "Cup Paper 8oz", desc: "Isi 1500 pcs", qty: 1500, price: 1750 }
+        ],
+        payments: [],
+        changes: ["Transaksi terbit dibuat sebelum tutup buku", "Transaksi di-void setelah tutup buku"]
       }
     ];
 
@@ -271,6 +358,34 @@ const today = new Date("2026-07-13T00:00:00");
 
     function paidOf(inv) {
       return Number(inv.paidAmount || inv.paid || 0);
+    }
+
+    function remainingOf(inv) {
+      return Math.max(totalOf(inv) - paidOf(inv), 0);
+    }
+
+    function hasPayment(inv) {
+      return paidOf(inv) > 0 || (inv.payments && inv.payments.length > 0);
+    }
+
+    function canVoid(inv) {
+      return inv && inv.transactionStatus !== "Void";
+    }
+
+    function isActiveDebt(inv) {
+      return inv.transactionStatus !== "Void";
+    }
+
+    function bookStatusOf(inv) {
+      if (inv.voidBookStatus) return inv.voidBookStatus;
+      return inv.date < closedBookCutoffDate ? "closed" : "open";
+    }
+
+    function voidJournalText(inv) {
+      if (bookStatusOf(inv) === "closed") {
+        return `Sudah tutup buku: transaksi sebelum ${closedBookCutoffDate} perlu penyesuaian melalui jurnal pembalik manual. Fitur Void tidak membuat jurnal pembalik otomatis.`;
+      }
+      return `Belum tutup buku: transaksi pada atau setelah ${closedBookCutoffDate} disimulasikan menghapus jurnal transaksi dan jurnal pembayaran terkait.`;
     }
 
     function paymentStatusOf(inv) {
@@ -343,6 +458,7 @@ const today = new Date("2026-07-13T00:00:00");
 
     function dueMatches(inv, condition) {
       if (condition === "all") return true;
+      if (inv.transactionStatus === "Void") return false;
       if (paymentStatusOf(inv) === "Lunas") return false;
       const diff = dayDiff(inv.dueDate);
       if (condition === "overdue") return diff < 0;
@@ -618,7 +734,7 @@ const today = new Date("2026-07-13T00:00:00");
     }
 
     function resetPeriodDraft() {
-      periodDraft = { startDate: "2026-07-01", endDate: "2026-07-31" };
+      periodDraft = { startDate: defaultPeriodStart, endDate: defaultPeriodEnd };
       renderPeriodDraft();
     }
 
@@ -784,12 +900,14 @@ const today = new Date("2026-07-13T00:00:00");
       const subtotal = data.reduce((sum, inv) => sum + subtotalOf(inv), 0);
       const tax = data.reduce((sum, inv) => sum + Number(inv.tax || 0), 0);
       const discount = data.reduce((sum, inv) => sum + Number(inv.discount || 0), 0);
-      const paidTotal = data.filter(inv => paymentStatusOf(inv) === "Lunas").reduce((sum, inv) => sum + totalOf(inv), 0);
-      const debtTotal = data.reduce((sum, inv) => sum + Math.max(totalOf(inv) - paidOf(inv), 0), 0);
-      const paidPercent = totalPurchase ? Math.round((paidTotal / totalPurchase) * 100) : 0;
-      const debtPercent = totalPurchase ? Math.round((debtTotal / totalPurchase) * 100) : 0;
-      const dueData = data.filter(inv => dueTone(inv));
-      const dueNominal = dueData.reduce((sum, inv) => sum + Math.max(totalOf(inv) - paidOf(inv), 0), 0);
+      const activeData = data.filter(isActiveDebt);
+      const activeTotal = activeData.reduce((sum, inv) => sum + totalOf(inv), 0);
+      const paidTotal = activeData.filter(inv => paymentStatusOf(inv) === "Lunas").reduce((sum, inv) => sum + totalOf(inv), 0);
+      const debtTotal = activeData.reduce((sum, inv) => sum + remainingOf(inv), 0);
+      const paidPercent = activeTotal ? Math.round((paidTotal / activeTotal) * 100) : 0;
+      const debtPercent = activeTotal ? Math.round((debtTotal / activeTotal) * 100) : 0;
+      const dueData = activeData.filter(inv => dueTone(inv));
+      const dueNominal = dueData.reduce((sum, inv) => sum + remainingOf(inv), 0);
       const drafts = data.filter(inv => inv.transactionStatus === "Draft");
       const draftNominal = drafts.reduce((sum, inv) => sum + totalOf(inv), 0);
 
@@ -807,42 +925,48 @@ const today = new Date("2026-07-13T00:00:00");
 
     function actionItems(inv) {
       if (inv.transactionStatus === "Draft") {
-        return [
+        const items = [
           ["Lanjutkan Transaksi", `openAction('continue', ${inv.id})`],
-          ["Void", `cancelFromList(${inv.id})`, "danger"],
+          ["Cetak", `openAction('print', ${inv.id})`],
+          ["Unduh PDF", `openAction('pdf', ${inv.id})`],
+          ["Share WhatsApp", `openAction('wa', ${inv.id})`],
+          ["Share Email", `openAction('email', ${inv.id})`]
+        ];
+        if (canVoid(inv)) items.splice(1, 0, ["Void", `cancelFromList(${inv.id})`, "danger"]);
+        return items;
+      }
+      if (inv.transactionStatus === "Void") {
+        return [
+          ["Detail", `openDetailFromMenu(${inv.id})`],
           ["Cetak", `openAction('print', ${inv.id})`],
           ["Unduh PDF", `openAction('pdf', ${inv.id})`],
           ["Share WhatsApp", `openAction('wa', ${inv.id})`],
           ["Share Email", `openAction('email', ${inv.id})`]
         ];
       }
-      if (inv.transactionStatus === "Void") {
-        return [
-          ["Detail", `openDetailFromMenu(${inv.id})`],
-          ["Buat Salinan", `duplicateInvoice(${inv.id})`]
-        ];
-      }
-      return [
+      const items = [
         ["Detail", `openDetailFromMenu(${inv.id})`],
-        ["Void", `cancelFromList(${inv.id})`, "danger"],
         ["Cetak", `openAction('print', ${inv.id})`],
         ["Unduh PDF", `openAction('pdf', ${inv.id})`],
         ["Share WhatsApp", `openAction('wa', ${inv.id})`],
         ["Share Email", `openAction('email', ${inv.id})`]
       ];
+      if (canVoid(inv)) items.splice(1, 0, ["Void", `cancelFromList(${inv.id})`, "danger"]);
+      return items;
     }
 
     function renderList() {
       const data = getFilteredInvoices(true);
+      const statsData = getFilteredInvoices(false);
       renderTabCounts();
-      renderStats(data);
+      renderStats(statsData);
       renderSortArrows();
 
       const rows = document.getElementById("invoiceRows");
       rows.innerHTML = data.map(inv => {
         const status = paymentStatusOf(inv);
         const total = totalOf(inv);
-        const remaining = Math.max(total - paidOf(inv), 0);
+        const remaining = remainingOf(inv);
         const tone = dueTone(inv);
         const checked = selectedIds.has(inv.id) ? "checked" : "";
         const actions = actionItems(inv).map(action => `
@@ -935,24 +1059,39 @@ const today = new Date("2026-07-13T00:00:00");
       document.getElementById("itemRows").innerHTML = "";
 
       if (type === "create") {
+        const source = copySourceAfterVoid;
+        createSourceTemplate = source ? { ...source } : null;
+        copySourceAfterVoid = null;
         selectedId = null;
         document.getElementById("formTitle").textContent = `Tambah ${moduleLabels().module}`;
         document.getElementById("codeInput").value = nextCode();
-        document.getElementById("vendorInput").value = defaultVendorName();
-        document.getElementById("dateInput").value = dateString(today);
-        document.getElementById("termInput").value = "30";
-        document.getElementById("vendorRefInput").value = "";
-        document.getElementById("noteInput").value = "";
-        document.getElementById("discountInput").value = 0;
-        document.getElementById("taxInput").value = 0;
-        document.getElementById("feeInput").value = 0;
-        applyTerm();
-        addItem("Biji Kopi Arabika", "Grade A, 25 kg", 2, 1200000);
+        document.getElementById("vendorInput").value = source ? source.vendor : defaultVendorName();
+        document.getElementById("dateInput").value = source ? source.date : dateString(today);
+        document.getElementById("termInput").value = source ? source.term : "30";
+        document.getElementById("vendorRefInput").value = source ? source.vendorRef : "";
+        document.getElementById("noteInput").value = source ? source.note || "" : "";
+        document.getElementById("discountInput").value = source ? source.discount || 0 : 0;
+        document.getElementById("taxInput").value = source ? source.tax || 0 : 0;
+        document.getElementById("feeInput").value = source ? source.fee || 0 : 0;
+        if (source && source.term === "custom") {
+          document.getElementById("dueInput").value = source.dueDate;
+          document.getElementById("dueInput").disabled = false;
+          document.getElementById("dueInput").classList.remove("disabled");
+        } else {
+          applyTerm();
+        }
+        const sourceItems = source ? source.items : [{ product: "Biji Kopi Arabika", desc: "Grade A, 25 kg", qty: 2, price: 1200000 }];
+        sourceItems.forEach(item => addItem(item.product, item.desc, item.qty, item.price));
       }
 
       if (type === "edit") {
         const inv = invoices.find(i => i.id === selectedId);
         if (!inv) return;
+        if (inv.transactionStatus === "Void") {
+          showToast("Transaksi Void tidak dapat diubah.");
+          showPage("detail");
+          return;
+        }
 
         document.getElementById("formTitle").textContent = inv.transactionStatus === "Draft" ? `Lanjutkan ${moduleLabels().module}` : `Ubah ${moduleLabels().module}`;
         document.getElementById("codeInput").value = inv.code;
@@ -1048,6 +1187,7 @@ const today = new Date("2026-07-13T00:00:00");
       }
 
       const oldInvoice = invoices.find(inv => inv.id === selectedId);
+      const template = mode === "create" ? createSourceTemplate : null;
       const transactionStatus = statusValue === "Draft" ? "Draft" : "Terbit";
       const payload = {
         id: mode === "create" ? Date.now() : selectedId,
@@ -1058,10 +1198,10 @@ const today = new Date("2026-07-13T00:00:00");
         dueDate: document.getElementById("dueInput").value,
         term: document.getElementById("termInput").value,
         transactionStatus,
-        sourceData: oldInvoice ? oldInvoice.sourceData : "Perusahaan Kopi Nusantara",
-        paymentMethod: oldInvoice ? oldInvoice.paymentMethod : "Transfer Bank",
-        cashBankAccount: oldInvoice ? oldInvoice.cashBankAccount : "BCA Operasional",
-        creator: oldInvoice ? oldInvoice.creator : "Siti Mulyani",
+        sourceData: oldInvoice ? oldInvoice.sourceData : template ? template.sourceData : "Perusahaan Kopi Nusantara",
+        paymentMethod: oldInvoice ? oldInvoice.paymentMethod : template ? template.paymentMethod : "Transfer Bank",
+        cashBankAccount: oldInvoice ? oldInvoice.cashBankAccount : template ? template.cashBankAccount : "BCA Operasional",
+        creator: oldInvoice ? oldInvoice.creator : template ? template.creator : "Siti Mulyani",
         discount: Number(document.getElementById("discountInput").value || 0),
         tax: Number(document.getElementById("taxInput").value || 0),
         fee: Number(document.getElementById("feeInput").value || 0),
@@ -1071,7 +1211,9 @@ const today = new Date("2026-07-13T00:00:00");
         payments: oldInvoice ? oldInvoice.payments : [],
         changes: oldInvoice
           ? [...oldInvoice.changes, transactionStatus === "Draft" ? "Draft diperbarui" : "Transaksi diterbitkan/diperbarui"]
-          : [transactionStatus === "Draft" ? `Draft ${moduleLabels().module.toLowerCase()} dibuat` : "Transaksi terbit dibuat"]
+          : template
+            ? [`Salinan dibuat dari transaksi Void ${template.code}`, transactionStatus === "Draft" ? `Draft ${moduleLabels().module.toLowerCase()} dibuat` : "Transaksi terbit dibuat"]
+            : [transactionStatus === "Draft" ? `Draft ${moduleLabels().module.toLowerCase()} dibuat` : "Transaksi terbit dibuat"]
       };
 
       if (mode === "create") {
@@ -1082,6 +1224,7 @@ const today = new Date("2026-07-13T00:00:00");
       }
 
       selectedId = payload.id;
+      createSourceTemplate = null;
       activeTransactionTab = payload.transactionStatus;
       showToast(transactionStatus === "Draft" ? `Draft ${moduleLabels().module.toLowerCase()} berhasil disimpan.` : `${moduleLabels().module} berhasil diterbitkan.`);
       showPage("detail");
@@ -1098,15 +1241,26 @@ const today = new Date("2026-07-13T00:00:00");
       const status = paymentStatusOf(inv);
       const subtotal = subtotalOf(inv);
       const total = totalOf(inv);
-      const remaining = Math.max(total - paidOf(inv), 0);
+      const remaining = remainingOf(inv);
       const tone = dueTone(inv);
+      const voidNotice = document.getElementById("detailVoidNotice");
 
       document.getElementById("detailCode").textContent = inv.code;
       document.getElementById("detailVendor").textContent = inv.vendor;
-      document.getElementById("detailStatus").innerHTML = `<span class="badge ${statusClass(inv.transactionStatus)}">${inv.transactionStatus}</span> <span class="badge ${statusClass(status)}">${status}</span>`;
+      document.getElementById("detailStatus").innerHTML = `<span class="badge ${statusClass(inv.transactionStatus)}">${inv.transactionStatus}</span>`;
+      const detailPaymentStatus = document.getElementById("detailPaymentStatus");
+      if (detailPaymentStatus) detailPaymentStatus.innerHTML = `<span class="badge ${statusClass(status)}">${status}</span>`;
       document.getElementById("detailRef").textContent = inv.vendorRef || "-";
       document.getElementById("detailDate").textContent = inv.date;
       document.getElementById("detailDue").innerHTML = `<span class="due-cell ${tone}" title="${dueTooltip(inv)}">${inv.dueDate}</span>`;
+      if (voidNotice) {
+        voidNotice.classList.toggle("show", inv.transactionStatus === "Void");
+        if (inv.transactionStatus === "Void") {
+          document.getElementById("voidReasonText").textContent = inv.voidReason || inv.note || "Alasan pembatalan belum tercatat pada data lama.";
+          document.getElementById("voidDateText").textContent = inv.voidedAt || dateString(today);
+          document.getElementById("voidJournalText").textContent = voidJournalText(inv);
+        }
+      }
 
       document.getElementById("detailItems").innerHTML = inv.items.map(item => `
         <tr>
@@ -1124,10 +1278,12 @@ const today = new Date("2026-07-13T00:00:00");
       document.getElementById("detailFee").textContent = money(inv.fee);
       document.getElementById("detailTotal").textContent = money(total);
       document.getElementById("detailRemaining").textContent = money(remaining);
+      const editBtn = document.getElementById("editBtn");
+      if (editBtn) editBtn.style.display = inv.transactionStatus === "Void" ? "none" : "inline-flex";
       document.getElementById("paymentBtn").style.display =
         status === "Lunas" || inv.transactionStatus !== "Terbit" ? "none" : "inline-flex";
       document.getElementById("cancelBtn").style.display =
-        inv.transactionStatus === "Void" ? "none" : "inline-flex";
+        canVoid(inv) ? "inline-flex" : "none";
 
       document.getElementById("paymentHistory").innerHTML = inv.payments.length
         ? inv.payments.map(p => `
@@ -1155,6 +1311,26 @@ const today = new Date("2026-07-13T00:00:00");
     function openJournal() {
       const inv = invoices.find(i => i.id === selectedId);
       if (!inv) return;
+      const journalSubtitle = document.getElementById("journalSubtitle");
+      if (journalSubtitle) {
+        journalSubtitle.textContent = inv.transactionStatus === "Void"
+          ? "Perlakuan jurnal mengikuti status tutup buku saat transaksi di-void."
+          : "Jurnal dibuat otomatis dari tagihan dan pembayaran.";
+      }
+      if (inv.transactionStatus === "Void") {
+        document.getElementById("journalRows").innerHTML = `
+          <tr>
+            <td colspan="4">
+              <div class="journal-empty">
+                <strong>Transaksi Void</strong>
+                <span>${voidJournalText(inv)}</span>
+              </div>
+            </td>
+          </tr>
+        `;
+        openModal("journalModal");
+        return;
+      }
       const total = totalOf(inv);
       const rows = isSalesModule()
         ? [
@@ -1183,7 +1359,11 @@ const today = new Date("2026-07-13T00:00:00");
     function openPayment() {
       const inv = invoices.find(i => i.id === selectedId);
       if (!inv) return;
-      const remaining = Math.max(totalOf(inv) - paidOf(inv), 0);
+      if (inv.transactionStatus === "Void") {
+        showToast("Transaksi Void tidak dapat menerima pembayaran.");
+        return;
+      }
+      const remaining = remainingOf(inv);
       document.getElementById("paymentInfo").textContent = `Sisa tagihan: ${money(remaining)}`;
       document.getElementById("paymentAmount").value = remaining;
       document.getElementById("paymentDate").value = dateString(today);
@@ -1204,7 +1384,12 @@ const today = new Date("2026-07-13T00:00:00");
     function savePayment() {
       const inv = invoices.find(i => i.id === selectedId);
       if (!inv) return;
-      const remaining = Math.max(totalOf(inv) - paidOf(inv), 0);
+      if (inv.transactionStatus === "Void") {
+        showToast("Transaksi Void tidak dapat menerima pembayaran.");
+        closeModal("paymentModal");
+        return;
+      }
+      const remaining = remainingOf(inv);
       const amount = Number(document.getElementById("paymentAmount").value || 0);
       if (amount <= 0) {
         showToast("Nominal pembayaran harus lebih dari 0.");
@@ -1229,38 +1414,186 @@ const today = new Date("2026-07-13T00:00:00");
     }
 
     function openCancelModal() {
+      const inv = invoices.find(i => i.id === selectedId);
+      if (!canVoid(inv)) {
+        showToast("Transaksi Void tidak dapat di-void ulang.");
+        return;
+      }
+      document.getElementById("cancelReason").value = "";
+      document.querySelector("input[name='cancelOption'][value='void']").checked = true;
+      renderCancelModal();
       openModal("cancelModal");
+    }
+
+    function renderCancelModal() {
+      const inv = invoices.find(i => i.id === selectedId);
+      if (!inv) return;
+      const hasPaymentRecorded = hasPayment(inv);
+      document.getElementById("cancelTargetCode").textContent = inv.code;
+      document.getElementById("cancelTargetStatus").textContent = `${inv.transactionStatus} · ${paymentStatusOf(inv)}`;
+      document.getElementById("cancelPaymentWarning").classList.toggle("show", hasPaymentRecorded);
+      document.getElementById("cancelPaymentWarning").textContent = hasPaymentRecorded
+        ? "Transaksi ini sudah memiliki pembayaran. Perlakuan atas pembayaran mengikuti kebijakan perusahaan dan penyesuaian dilakukan manual bila diperlukan."
+        : "";
+      document.getElementById("cancelJournalInfo").textContent = voidJournalText(inv);
     }
 
     function confirmCancel() {
       const inv = invoices.find(i => i.id === selectedId);
-      if (!inv) return;
+      if (!canVoid(inv)) {
+        showToast("Transaksi Void tidak dapat di-void ulang.");
+        closeModal("cancelModal");
+        return;
+      }
+      const reason = document.getElementById("cancelReason").value.trim();
+      if (!reason) {
+        showToast("Alasan pembatalan wajib diisi.");
+        document.getElementById("cancelReason").focus();
+        return;
+      }
+      const option = document.querySelector("input[name='cancelOption']:checked").value;
+      const bookStatus = bookStatusOf(inv);
+      const sourceForCopy = {
+        ...inv,
+        items: inv.items.map(item => ({ ...item }))
+      };
       inv.transactionStatus = "Void";
-      inv.changes.push("Transaksi di-void oleh Owner/Admin");
+      inv.voidReason = reason;
+      inv.voidedAt = dateString(today);
+      inv.voidedBy = "Owner/Admin";
+      inv.voidBookStatus = bookStatus;
+      inv.changes.push(`Transaksi di-void oleh Owner/Admin. Alasan: ${reason}`);
       activeTransactionTab = "Void";
       closeModal("cancelModal");
+      if (option === "copy") {
+        copySourceAfterVoid = sourceForCopy;
+        showToast("Transaksi lama di-void. Form salinan baru dibuka.");
+        openForm("create");
+        return;
+      }
       showToast("Transaksi berhasil di-void.");
       showPage("list");
     }
 
-    function duplicateInvoice(id) {
-      const inv = invoices.find(i => i.id === id);
-      if (!inv) return;
-      const copy = {
-        ...inv,
-        id: Date.now(),
-        code: nextCode(),
-        transactionStatus: "Draft",
-        paidAmount: 0,
-        payments: [],
-        changes: ["Salinan dibuat dari transaksi Void"],
-        items: inv.items.map(item => ({ ...item }))
-      };
-      invoices.unshift(copy);
-      selectedId = copy.id;
-      activeTransactionTab = "Draft";
-      showToast("Salinan transaksi dibuat sebagai Draft.");
-      showPage("detail");
+    function safeFileName(value) {
+      return String(value).toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "");
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function transactionDocumentRows(inv) {
+      const rows = [
+        [`Dokumen ${moduleLabels().module}`],
+        ["Nomor Transaksi", inv.code],
+        [moduleLabels().contact, inv.vendor],
+        ["Tanggal Transaksi", inv.date],
+        ["Tanggal Jatuh Tempo", inv.dueDate],
+        ["Status Transaksi", inv.transactionStatus],
+        ["Status Pembayaran", paymentStatusOf(inv)],
+        ["Total Tagihan", money(totalOf(inv))],
+        ["Sisa Tagihan", money(remainingOf(inv))]
+      ];
+      if (inv.transactionStatus === "Void") {
+        rows.push(["Alasan Void", inv.voidReason || "-"]);
+        rows.push(["Perlakuan Jurnal", voidJournalText(inv)]);
+      }
+      rows.push([""]);
+      rows.push(["Produk/Jasa", "Deskripsi", "Qty", "Harga", "Subtotal"]);
+      inv.items.forEach(item => {
+        rows.push([item.product, item.desc, item.qty, money(item.price), money(item.qty * item.price)]);
+      });
+      return rows;
+    }
+
+    function transactionShareText(inv) {
+      return [
+        `${moduleLabels().module} ${inv.code}`,
+        `${moduleLabels().contact}: ${inv.vendor}`,
+        `Tanggal: ${inv.date}`,
+        `Jatuh tempo: ${inv.dueDate}`,
+        `Status transaksi: ${inv.transactionStatus}`,
+        `Status pembayaran: ${paymentStatusOf(inv)}`,
+        `Total: ${money(totalOf(inv))}`,
+        `Sisa: ${money(remainingOf(inv))}`,
+        inv.transactionStatus === "Void" ? `Alasan Void: ${inv.voidReason || "-"}` : ""
+      ].filter(Boolean).join("\n");
+    }
+
+    function downloadTransactionPdf(inv) {
+      const blob = createPdfBlob(transactionDocumentRows(inv));
+      downloadBlob(blob, `${safeFileName(inv.code)}.pdf`);
+      showToast(`PDF ${inv.code} berhasil diunduh.`);
+    }
+
+    function printTransactions(data) {
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        showToast("Pop-up cetak diblokir browser. Izinkan pop-up lalu coba lagi.");
+        return;
+      }
+      const title = data.length === 1 ? `${moduleLabels().module} ${data[0].code}` : `Daftar ${moduleLabels().module}`;
+      const cards = data.map(inv => `
+        <section class="doc">
+          ${inv.transactionStatus === "Void" ? `<div class="watermark">VOID</div>` : ""}
+          <h1>${title}</h1>
+          <table>
+            <tr><th>Nomor</th><td>${inv.code}</td></tr>
+            <tr><th>${moduleLabels().contact}</th><td>${inv.vendor}</td></tr>
+            <tr><th>Tanggal</th><td>${inv.date}</td></tr>
+            <tr><th>Jatuh Tempo</th><td>${inv.dueDate}</td></tr>
+            <tr><th>Status Transaksi</th><td>${inv.transactionStatus}</td></tr>
+            <tr><th>Status Pembayaran</th><td>${paymentStatusOf(inv)}</td></tr>
+            <tr><th>Total</th><td>${money(totalOf(inv))}</td></tr>
+            <tr><th>Sisa</th><td>${money(remainingOf(inv))}</td></tr>
+            ${inv.transactionStatus === "Void" ? `<tr><th>Alasan Void</th><td>${inv.voidReason || "-"}</td></tr>` : ""}
+          </table>
+        </section>
+      `).join("");
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #222; margin: 24px; }
+            .doc { page-break-after: always; position: relative; border: 1px solid #ddd; padding: 24px; }
+            .doc:last-child { page-break-after: auto; }
+            h1 { font-size: 20px; margin: 0 0 18px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border-bottom: 1px solid #eee; padding: 10px; text-align: left; vertical-align: top; }
+            th { width: 190px; color: #666; }
+            .watermark { position: absolute; right: 24px; top: 20px; border: 2px solid #ef233c; color: #ef233c; padding: 8px 16px; font-size: 24px; font-weight: 800; transform: rotate(-6deg); }
+          </style>
+        </head>
+        <body>${cards}</body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => printWindow.print(), 300);
+      showToast(data.length === 1 ? `Dialog cetak ${data[0].code} dibuka.` : `Dialog cetak ${data.length} transaksi dibuka.`);
+    }
+
+    function sendTransactionEmail(data) {
+      const first = data[0];
+      const recipient = data.length === 1 && vendors[first.vendor] ? vendors[first.vendor].email : "";
+      const subject = data.length === 1 ? `${moduleLabels().module} ${first.code}` : `Daftar ${moduleLabels().module}`;
+      const body = data.map(transactionShareText).join("\n\n---\n\n");
+      window.location.href = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      showToast(data.length === 1 ? `Email ${first.code} dibuka.` : `Email ${data.length} transaksi dibuka.`);
+    }
+
+    function sendTransactionWhatsApp(data) {
+      const text = data.map(transactionShareText).join("\n\n---\n\n");
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+      showToast(data.length === 1 ? `WhatsApp ${data[0].code} dibuka.` : `WhatsApp ${data.length} transaksi dibuka.`);
     }
 
     function openAction(action, id) {
@@ -1272,45 +1605,54 @@ const today = new Date("2026-07-13T00:00:00");
         openForm("edit");
         return;
       }
-      const labels = {
-        print: "Cetak disimulasikan. Jika direct print tidak tersedia, gunakan Unduh PDF.",
-        pdf: "Dokumen PDF siap diunduh (simulasi prototype).",
-        wa: "Link Share WhatsApp disiapkan (simulasi prototype).",
-        email: "Draft email disiapkan (simulasi prototype)."
-      };
-      showToast(`${labels[action]} ${inv.code}`);
+      if (action === "print") printTransactions([inv]);
+      if (action === "pdf") downloadTransactionPdf(inv);
+      if (action === "wa") sendTransactionWhatsApp([inv]);
+      if (action === "email") sendTransactionEmail([inv]);
     }
 
     function bulkAction(action) {
       if (!selectedIds.size) return;
+      const selectedData = invoices.filter(inv => selectedIds.has(inv.id));
       if (action === "export") {
         openExportModal("filtered", [...selectedIds]);
         return;
       }
-      const labels = {
-        print: "Cetak massal disimulasikan.",
-        pdf: "Unduh PDF massal disimulasikan.",
-        wa: "Share WhatsApp massal disimulasikan.",
-        email: "Share Email massal disimulasikan."
-      };
-      showToast(`${labels[action]} ${selectedIds.size} transaksi.`);
+      if (action === "print") printTransactions(selectedData);
+      if (action === "pdf") openExportModal("filtered", [...selectedIds]);
+      if (action === "wa") sendTransactionWhatsApp(selectedData);
+      if (action === "email") sendTransactionEmail(selectedData);
     }
 
     function exportDataForScope(scope) {
       if (exportSelectedIds && scope === "filtered") return invoices.filter(inv => exportSelectedIds.includes(inv.id));
+      const filteredData = getFilteredInvoices(false);
+      const statusScopes = {
+        draft: "Draft",
+        terbit: "Terbit",
+        void: "Void"
+      };
       if (scope === "all") return invoices;
-      return getFilteredInvoices(true);
+      if (statusScopes[scope]) return filteredData.filter(inv => inv.transactionStatus === statusScopes[scope]);
+      return filteredData;
     }
 
     function setExportScope(scope) {
       exportScope = scope;
-      ["all", "filtered"].forEach(item => {
-        const key = { all: "All", filtered: "Filtered" }[item];
+      ["filtered", "draft", "terbit", "void", "all"].forEach(item => {
+        const key = { all: "All", filtered: "Filtered", draft: "Draft", terbit: "Terbit", void: "Void" }[item];
         const option = document.getElementById(`exportOption${key}`);
         if (option) option.classList.toggle("active", item === scope);
       });
       const count = exportDataForScope(scope).length;
-      const label = exportSelectedIds && scope === "filtered" ? "transaksi terpilih" : scope === "filtered" ? "data sesuai filter dan search" : "semua data";
+      const labels = {
+        filtered: exportSelectedIds ? "transaksi terpilih" : "data sesuai filter dan search",
+        draft: "draft sesuai filter dan search",
+        terbit: "transaksi terbit sesuai filter dan search",
+        void: "transaksi void sesuai filter dan search",
+        all: "semua data"
+      };
+      const label = labels[scope] || labels.filtered;
       document.getElementById("exportSummary").textContent = `${count} ${label} akan diekspor dalam file ${exportFormat === "excel" ? "Excel" : "PDF"}.`;
     }
 
@@ -1323,8 +1665,12 @@ const today = new Date("2026-07-13T00:00:00");
 
     function openExportModal(scope = "filtered", ids = null) {
       exportSelectedIds = ids;
+      const filteredData = exportSelectedIds ? invoices.filter(inv => exportSelectedIds.includes(inv.id)) : getFilteredInvoices(false);
+      document.getElementById("exportFilteredCount").textContent = `${filteredData.length} Item`;
+      document.getElementById("exportDraftCount").textContent = `${filteredData.filter(inv => inv.transactionStatus === "Draft").length} Item`;
+      document.getElementById("exportTerbitCount").textContent = `${filteredData.filter(inv => inv.transactionStatus === "Terbit").length} Item`;
+      document.getElementById("exportVoidCount").textContent = `${filteredData.filter(inv => inv.transactionStatus === "Void").length} Item`;
       document.getElementById("exportAllCount").textContent = `${invoices.length} Item`;
-      document.getElementById("exportFilteredCount").textContent = `${ids ? ids.length : getFilteredInvoices(true).length} Item`;
       setExportScope(scope);
       setExportFormat(exportFormat);
       openModal("exportModal");
@@ -1546,7 +1892,7 @@ const today = new Date("2026-07-13T00:00:00");
       const data = ids
         ? invoices.filter(inv => ids.includes(inv.id))
         : getFilteredInvoices(true);
-      const header = ["Nomor Transaksi", moduleLabels().contact, "Tanggal Transaksi", "Tanggal Jatuh Tempo", "Total Tagihan", "Sisa Tagihan", "Status Pembayaran", "Status Transaksi"];
+      const header = ["Nomor Transaksi", moduleLabels().contact, "Tanggal Transaksi", "Tanggal Jatuh Tempo", "Total Tagihan", "Sisa Tagihan", "Status Transaksi", "Status Pembayaran"];
       const lines = data.map(inv => [
         inv.code,
         inv.vendor,
@@ -1554,8 +1900,8 @@ const today = new Date("2026-07-13T00:00:00");
         inv.dueDate,
         totalOf(inv),
         Math.max(totalOf(inv) - paidOf(inv), 0),
-        paymentStatusOf(inv),
-        inv.transactionStatus
+        inv.transactionStatus,
+        paymentStatusOf(inv)
       ]);
       const rows = [header, ...lines];
       const blob = type === "pdf" ? createPdfBlob(rows) : createXlsxBlob(rows);
@@ -1607,8 +1953,8 @@ const today = new Date("2026-07-13T00:00:00");
       filters = {
         sources: [],
         vendors: [],
-        startDate: "2026-07-01",
-        endDate: "2026-07-31",
+        startDate: defaultPeriodStart,
+        endDate: defaultPeriodEnd,
         paymentMethod: "all",
         accounts: [],
         products: [],

@@ -92,7 +92,7 @@
               <div class="field">
                 <label>Periode</label>
                 <button class="date-trigger" id="quickPeriodLabel" onclick="openPeriodModal('quick')" type="button">
-                  <span>01/07/2026 - 31/07/2026</span><span>▾</span>
+                  <span>01/06/2026 - 31/07/2026</span><span>▾</span>
                 </button>
               </div>
 
@@ -325,9 +325,19 @@
               <div style="display:flex; gap:10px; flex-wrap:wrap;">
                 <button class="btn btn-ghost" onclick="showPage('list')">← Kembali</button>
                 <button class="btn btn-ghost" onclick="openJournal()">Lihat Jurnal</button>
-                <button class="btn btn-soft" onclick="openForm('edit')">Ubah</button>
+                <button class="btn btn-soft" id="editBtn" onclick="openForm('edit')">Ubah</button>
                 <button class="btn btn-danger" id="cancelBtn" onclick="openCancelModal()">Batalkan</button>
                 <button class="btn btn-primary" id="paymentBtn" onclick="openPayment()">Catat Pembayaran</button>
+              </div>
+            </div>
+
+            <div class="void-banner" id="detailVoidNotice">
+              <div class="void-watermark">VOID</div>
+              <div>
+                <div class="void-title">Transaksi ini sudah di-void</div>
+                <div class="void-meta">Alasan: <strong id="voidReasonText">-</strong></div>
+                <div class="void-meta">Tanggal Void: <strong id="voidDateText">-</strong></div>
+                <div class="void-meta" id="voidJournalText">-</div>
               </div>
             </div>
 
@@ -341,8 +351,12 @@
                 <div class="info-value" id="detailVendor">-</div>
               </div>
               <div>
-                <div class="info-label">Status</div>
+                <div class="info-label">Status Transaksi</div>
                 <div id="detailStatus"></div>
+              </div>
+              <div>
+                <div class="info-label">Status Pembayaran</div>
+                <div id="detailPaymentStatus"></div>
               </div>
               <div>
                 <div class="info-label">Referensi Invoice Pelanggan</div>
@@ -460,7 +474,7 @@
         <div class="field">
           <label>Periode</label>
           <button class="date-trigger" id="filterPeriodLabel" onclick="openPeriodModal('filter')" type="button">
-            <span>01/07/2026 - 31/07/2026</span><span>▾</span>
+            <span>01/06/2026 - 31/07/2026</span><span>▾</span>
           </button>
           <div class="status-note">Maksimal rentang periode satu tahun.</div>
         </div>
@@ -582,7 +596,7 @@
       <div class="modal-head">
         <div>
           <div class="modal-title">Jurnal Otomatis</div>
-          <div class="sub-text">Jurnal dibuat otomatis dari tagihan dan pembayaran.</div>
+          <div class="sub-text" id="journalSubtitle">Jurnal dibuat otomatis dari tagihan dan pembayaran.</div>
         </div>
         <button class="close" onclick="closeModal('journalModal')">×</button>
       </div>
@@ -661,10 +675,40 @@
 
   <div class="modal-backdrop" id="cancelModal">
     <div class="modal">
-      <div class="modal-title">Void transaksi?</div>
-      <div class="sub-text">
-        Transaksi ini akan masuk kelompok Void dan tidak dihitung sebagai hutang aktif. Aksi ini tetap tersimpan di histori perubahan.
+      <div class="modal-head">
+        <div>
+          <div class="modal-title">Void transaksi?</div>
+          <div class="sub-text">
+            <span id="cancelTargetCode">-</span> · <span id="cancelTargetStatus">-</span>
+          </div>
+        </div>
+        <button class="close" onclick="closeModal('cancelModal')">×</button>
       </div>
+
+      <div class="void-options">
+        <label class="choice-card">
+          <input type="radio" name="cancelOption" value="void" checked />
+          <span>
+            <strong>Void saja</strong>
+            <small>Transaksi lama berubah menjadi Void dan tetap tersimpan sebagai histori.</small>
+          </span>
+        </label>
+        <label class="choice-card">
+          <input type="radio" name="cancelOption" value="copy" />
+          <span>
+            <strong>Void dan Salin Transaksi Baru</strong>
+            <small>Form transaksi baru akan dibuka dengan data dari transaksi lama dan nomor baru.</small>
+          </span>
+        </label>
+      </div>
+
+      <div class="field">
+        <label>Alasan pembatalan <span class="required">*</span></label>
+        <textarea id="cancelReason" placeholder="Contoh: harga berubah, transaksi akan dibuat ulang."></textarea>
+      </div>
+
+      <div class="void-note" id="cancelJournalInfo">Status tutup buku dihitung otomatis dari tanggal transaksi.</div>
+      <div class="void-note warning" id="cancelPaymentWarning"></div>
 
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeModal('cancelModal')">Kembali</button>
@@ -718,7 +762,7 @@
         <div>
           <div class="period-field">
             Periode Awal <span class="required">*</span>
-            <strong id="periodDraftStart">01/07/2026</strong>
+            <strong id="periodDraftStart">01/06/2026</strong>
           </div>
           <div class="calendar-title">‹ <span>Juli</span></div>
           <div class="calendar-grid" id="calendarStart"></div>
@@ -758,13 +802,25 @@
       </div>
 
       <div class="export-body">
-        <div class="export-option active" id="exportOptionAll" onclick="setExportScope('all')">
-          <div class="export-left"><span class="radio-dot"></span>Semua Data</div>
-          <div class="count-pill" id="exportAllCount">0 Item</div>
-        </div>
-        <div class="export-option" id="exportOptionFiltered" onclick="setExportScope('filtered')">
+        <div class="export-option active" id="exportOptionFiltered" onclick="setExportScope('filtered')">
           <div class="export-left"><span class="radio-dot"></span>Sesuai Filter dan Search</div>
           <div class="count-pill" id="exportFilteredCount">0 Item</div>
+        </div>
+        <div class="export-option" id="exportOptionDraft" onclick="setExportScope('draft')">
+          <div class="export-left"><span class="radio-dot"></span>Draft Saja</div>
+          <div class="count-pill" id="exportDraftCount">0 Item</div>
+        </div>
+        <div class="export-option" id="exportOptionTerbit" onclick="setExportScope('terbit')">
+          <div class="export-left"><span class="radio-dot"></span>Terbit Saja</div>
+          <div class="count-pill" id="exportTerbitCount">0 Item</div>
+        </div>
+        <div class="export-option" id="exportOptionVoid" onclick="setExportScope('void')">
+          <div class="export-left"><span class="radio-dot"></span>Void Saja</div>
+          <div class="count-pill" id="exportVoidCount">0 Item</div>
+        </div>
+        <div class="export-option" id="exportOptionAll" onclick="setExportScope('all')">
+          <div class="export-left"><span class="radio-dot"></span>Semua Data</div>
+          <div class="count-pill" id="exportAllCount">0 Item</div>
         </div>
 
         <div class="export-format">
