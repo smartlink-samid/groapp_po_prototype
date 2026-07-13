@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GroApp Accounting - Tagihan Penjualan</title>
+
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <span>GroApp Accounting</span>
+        </div>
+        <button class="sidebar-toggle" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
+      </div>
+
+      <div class="sidebar-search">
+        <input placeholder="Cari disini..." />
+      </div>
+
+      <nav class="nav">
+        <div class="nav-item disabled" title="Belum aktif">▦ <span class="nav-label">Quick Action</span></div>
+        <div class="nav-item disabled" title="Belum aktif">□ <span class="nav-label">Dashboard</span></div>
+
+        <div class="nav-section">MASTER DATA</div>
+        <div class="nav-item disabled" title="Belum aktif">♢ <span class="nav-label">Chart of Account</span></div>
+        <div class="nav-item disabled" title="Belum aktif">▤ <span class="nav-label">Rekening Kas dan Bank</span></div>
+        <div class="nav-item disabled" title="Belum aktif">☏ <span class="nav-label">Kontak</span></div>
+        <div class="nav-item disabled" title="Belum aktif">◇ <span class="nav-label">Produk</span></div>
+        <div class="nav-item disabled" title="Belum aktif">♡ <span class="nav-label">Jasa</span></div>
+
+        <div class="nav-section">TRANSAKSI</div>
+        <a class="nav-item active" href="../penjualan/">▥ <span class="nav-label">Penjualan</span></a>
+        <a class="nav-item" href="../pembelian/">▣ <span class="nav-label">Pembelian</span></a>
+        <div class="nav-item disabled" title="Belum aktif">♙ <span class="nav-label">Biaya</span></div>
+        <div class="nav-item disabled" title="Belum aktif">▧ <span class="nav-label">Laporan</span></div>
+
+        <div class="nav-section">LAINNYA</div>
+        <div class="nav-item disabled" title="Belum aktif">⚙ <span class="nav-label">Pengaturan</span></div>
+      </nav>
+
+      <div class="company">
+        <div class="avatar">KN</div>
+        <div>
+          <div class="company-title">Perusahaan Kopi Nusant...</div>
+          <div class="company-sub">Ruang Kerja Bos</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="page-title" id="pageTitle">Manajemen Penjualan</div>
+          <div class="breadcrumb" id="pageBreadcrumb">Daftar Penjualan</div>
+        </div>
+
+        <div class="top-actions">
+          <button class="bell" onclick="toggleNotification(event)">🔔</button>
+          <div class="avatar">SM</div>
+        </div>
+      </header>
+
+      <section class="content">
+        <section id="listPage" class="page active">
+          <div class="card panel">
+            <div class="section-head">
+              <h1 class="panel-title">Daftar Tagihan Penjualan</h1>
+              <div class="header-actions">
+                <button class="btn btn-primary" onclick="openForm('create')">＋ Tambah Penjualan</button>
+                <button class="btn btn-green" onclick="openStandalonePayment()">＋ Tambah Pembayaran</button>
+              </div>
+            </div>
+
+            <div class="quick-filters">
+              <div class="field">
+                <label>Sumber Data</label>
+                <div class="multi-select">
+                  <button class="select-trigger" id="quickSourcesTrigger" onclick="toggleQuickSourceMenu()" type="button"><span>Semua</span><span>▾</span></button>
+                  <div class="multi-menu" id="quickSourcesMenu">
+                    <input id="quickSourceSearch" placeholder="Cari sumber data..." oninput="renderQuickSourceOptions()" />
+                    <div class="multi-options" id="quickFilterSources"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field">
+                <label>Periode</label>
+                <button class="date-trigger" id="quickPeriodLabel" onclick="openPeriodModal('quick')" type="button">
+                  <span>01/07/2026 - 31/07/2026</span><span>▾</span>
+                </button>
+              </div>
+
+              <div class="field">
+                <label>Jatuh Tempo</label>
+                <select id="quickDue" onchange="applyQuickFilters()">
+                  <option value="all">Semua</option>
+                  <option value="14">14 hari lagi</option>
+                  <option value="7">7 hari lagi</option>
+                  <option value="3">3 hari lagi</option>
+                  <option value="tomorrow">Besok</option>
+                  <option value="today">Hari ini</option>
+                  <option value="overdue">Terlambat</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="toolbar">
+              <div class="toolbar-left">
+                <div class="search-wrap">
+                  <input class="search-input" id="searchInput" placeholder="Cari nomor transaksi atau pelanggan..." />
+                </div>
+                <button class="btn btn-ghost" onclick="toggleFilter(true)">▾ Filter</button>
+                <button class="btn btn-ghost" onclick="resetFilter()">Reset</button>
+                <button class="btn btn-ghost" onclick="openExportModal('filtered')">⇩ Export</button>
+              </div>
+            </div>
+
+            <div class="stats">
+              <div class="stat">
+                <div class="stat-label">Total Transaksi</div>
+                <div class="stat-value" id="statTotal">Rp0</div>
+                <div class="split-nominal" id="statTotalBreakdown">Omzet Rp0 · Pajak Rp0 · Diskon Rp0</div>
+              </div>
+
+              <div class="stat">
+                <div class="stat-label">Rasio Lunas dan Piutang</div>
+                <div class="split-stat">
+                  <div class="split-box">
+                    <div class="split-percent" id="paidPercent">0%</div>
+                    <div class="split-nominal" id="paidNominal">Lunas Rp0</div>
+                  </div>
+                  <div class="split-box">
+                    <div class="split-percent debt" id="debtPercent">0%</div>
+                    <div class="split-nominal" id="debtNominal">Utang Rp0</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="stat">
+                <div class="stat-label">Jatuh Tempo</div>
+                <div class="stat-value" id="dueNominal">Rp0</div>
+                <div class="split-nominal" id="dueThisMonth">0 transaksi</div>
+              </div>
+
+              <div class="stat">
+                <div class="stat-label">Jumlah Draft</div>
+                <div class="stat-value" id="draftCount">0</div>
+                <div class="split-nominal" id="draftNominal">Rp0</div>
+              </div>
+            </div>
+
+            <div class="tabs" id="statusTabs">
+              <button class="tab-btn active" data-tab="all" onclick="setTransactionTab('all')">Semua <span id="tabAllCount">0</span></button>
+              <button class="tab-btn" data-tab="Terbit" onclick="setTransactionTab('Terbit')">Terbit <span id="tabTerbitCount">0</span></button>
+              <button class="tab-btn" data-tab="Draft" onclick="setTransactionTab('Draft')">Draft <span id="tabDraftCount">0</span></button>
+              <button class="tab-btn" data-tab="Void" onclick="setTransactionTab('Void')">Void <span id="tabVoidCount">0</span></button>
+            </div>
+
+            <div class="bulk-bar" id="bulkBar">
+              <strong id="bulkInfo">0 transaksi dipilih</strong>
+              <div class="bulk-actions">
+                <button class="btn btn-ghost" onclick="bulkAction('export')">Export</button>
+                <button class="btn btn-ghost" onclick="bulkAction('print')">Cetak</button>
+                <button class="btn btn-ghost" onclick="bulkAction('pdf')">Unduh PDF</button>
+                <button class="btn btn-ghost" onclick="bulkAction('wa')">Share WhatsApp</button>
+                <button class="btn btn-ghost" onclick="bulkAction('email')">Share Email</button>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th class="check-cell"><input id="selectAll" type="checkbox" onchange="toggleSelectAll(this.checked)" /></th>
+                    <th>Nomor Transaksi</th>
+                    <th>Pelanggan</th>
+                    <th>Tanggal Transaksi</th>
+                    <th class="sortable" onclick="sortColumn('dueDate')" title="Merah: tanggal jatuh tempo sudah terlewati dan belum lunas. Kuning: jatuh tempo dalam 7 hari atau kurang dan belum lunas.">Jatuh Tempo <span class="sort-arrow" id="sort-dueDate">↕</span></th>
+                    <th>Total Tagihan</th>
+                    <th>Sisa Tagihan</th>
+                    <th>Status Pembayaran</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="invoiceRows"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="formPage" class="page">
+          <div class="card panel">
+            <div class="section-head">
+              <h1 class="panel-title" id="formTitle">Tambah Tagihan Penjualan</h1>
+              <button class="btn btn-ghost" onclick="showPage('list')">← Kembali</button>
+            </div>
+
+            <div class="form-grid">
+              <div class="field">
+                <label>Nomor Tagihan</label>
+                <input id="codeInput" class="disabled" disabled />
+              </div>
+
+              <div class="field">
+                <label>Pelanggan <span class="required">*</span></label>
+                <select id="vendorInput">
+                  <option>PT Maju Mapan</option>
+                  <option>CV Sumber Rezeki</option>
+                  <option>PT Bahan Kopi Nusantara</option>
+                  <option>UD Sinar Jaya</option>
+                  <option>PT Kemasan Prima</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>Tanggal Transaksi <span class="required">*</span></label>
+                <input id="dateInput" type="date" onchange="applyTerm()" />
+              </div>
+
+              <div class="field">
+                <label>Tanggal Jatuh Tempo <span class="required">*</span></label>
+                <input id="dueInput" type="date" />
+              </div>
+
+              <div class="field">
+                <label>Termin Pembayaran</label>
+                <select id="termInput" onchange="applyTerm()">
+                  <option value="7">Net 7</option>
+                  <option value="14">Net 14</option>
+                  <option value="30" selected>Net 30</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>Referensi Invoice Pelanggan</label>
+                <input id="vendorRefInput" placeholder="Contoh: INV/VDR/001" />
+              </div>
+            </div>
+          </div>
+
+          <div class="card panel">
+            <div class="section-head">
+              <h2 class="panel-title">Item Penjualan</h2>
+              <button class="btn btn-soft" onclick="addItem()">＋ Tambah Item</button>
+            </div>
+
+            <div class="item-section">
+              <div>
+                <div class="item-table">
+                  <div class="item-row item-head">
+                    <div>Produk/Jasa</div>
+                    <div>Deskripsi</div>
+                    <div>Qty</div>
+                    <div>Harga</div>
+                    <div>Subtotal</div>
+                    <div></div>
+                  </div>
+                  <div id="itemRows"></div>
+                </div>
+
+                <div style="height:18px"></div>
+
+                <div class="field">
+                  <label>Catatan</label>
+                  <textarea id="noteInput" placeholder="Tambahkan catatan untuk pelanggan atau tim internal..."></textarea>
+                </div>
+
+                <div class="field" style="margin-top:18px;">
+                  <label>Lampiran</label>
+                  <div class="upload">
+                    📁 <span>Unggah file</span> atau seret kesini
+                    <div class="sub-text">Format: JPG, PNG, WEBP, PDF, DOC, XLS, CSV, maks 3 file</div>
+                  </div>
+                </div>
+              </div>
+
+              <aside class="summary">
+                <div class="summary-row">
+                  <span>Subtotal</span>
+                  <strong id="subtotalText">Rp0</strong>
+                </div>
+
+                <div class="summary-row">
+                  <span>Diskon</span>
+                  <input class="mini-input" id="discountInput" type="number" value="0" oninput="calculateTotal()" />
+                </div>
+
+                <div class="summary-row">
+                  <span>Pajak</span>
+                  <input class="mini-input" id="taxInput" type="number" value="0" oninput="calculateTotal()" />
+                </div>
+
+                <div class="summary-row">
+                  <span>Biaya Tambahan</span>
+                  <input class="mini-input" id="feeInput" type="number" value="0" oninput="calculateTotal()" />
+                </div>
+
+                <div class="summary-total">
+                  <span>Total</span>
+                  <span id="totalText">Rp0</span>
+                </div>
+
+                <div style="height:18px"></div>
+                <button class="btn btn-ghost" style="width:100%;" onclick="submitInvoice('Draft')">Simpan Draft</button>
+                <div style="height:10px"></div>
+                <button class="btn btn-green" style="width:100%;" onclick="submitInvoice('Belum Dibayar')">Simpan Penjualan</button>
+                <div style="height:10px"></div>
+                <button class="btn btn-ghost" style="width:100%;" onclick="showPage('list')">Batalkan</button>
+              </aside>
+            </div>
+          </div>
+        </section>
+
+        <section id="detailPage" class="page">
+          <div class="card panel">
+            <div class="section-head">
+              <h1 class="panel-title">Detail Tagihan Penjualan</h1>
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-ghost" onclick="showPage('list')">← Kembali</button>
+                <button class="btn btn-ghost" onclick="openJournal()">Lihat Jurnal</button>
+                <button class="btn btn-soft" onclick="openForm('edit')">Ubah</button>
+                <button class="btn btn-danger" id="cancelBtn" onclick="openCancelModal()">Batalkan</button>
+                <button class="btn btn-primary" id="paymentBtn" onclick="openPayment()">Catat Pembayaran</button>
+              </div>
+            </div>
+
+            <div class="detail-grid">
+              <div>
+                <div class="info-label">Nomor Tagihan</div>
+                <div class="info-value" id="detailCode">-</div>
+              </div>
+              <div>
+                <div class="info-label">Pelanggan</div>
+                <div class="info-value" id="detailVendor">-</div>
+              </div>
+              <div>
+                <div class="info-label">Status</div>
+                <div id="detailStatus"></div>
+              </div>
+              <div>
+                <div class="info-label">Referensi Invoice Pelanggan</div>
+                <div class="info-value" id="detailRef">-</div>
+              </div>
+              <div>
+                <div class="info-label">Tanggal Transaksi</div>
+                <div class="info-value" id="detailDate">-</div>
+              </div>
+              <div>
+                <div class="info-label">Tanggal Jatuh Tempo</div>
+                <div class="info-value" id="detailDue">-</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card panel">
+            <h2 class="panel-title">Rincian Item</h2>
+            <div style="height:18px"></div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Produk/Jasa</th>
+                    <th>Deskripsi</th>
+                    <th>Qty</th>
+                    <th>Harga</th>
+                    <th>Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody id="detailItems"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card panel">
+            <h2 class="panel-title">Ringkasan Total</h2>
+            <div style="height:18px"></div>
+
+            <div class="detail-grid">
+              <div>
+                <div class="info-label">Subtotal</div>
+                <div class="info-value" id="detailSubtotal">Rp0</div>
+              </div>
+              <div>
+                <div class="info-label">Diskon</div>
+                <div class="info-value" id="detailDiscount">Rp0</div>
+              </div>
+              <div>
+                <div class="info-label">Pajak</div>
+                <div class="info-value" id="detailTax">Rp0</div>
+              </div>
+              <div>
+                <div class="info-label">Biaya Tambahan</div>
+                <div class="info-value" id="detailFee">Rp0</div>
+              </div>
+              <div>
+                <div class="info-label">Total Tagihan</div>
+                <div class="info-value amount" id="detailTotal">Rp0</div>
+              </div>
+              <div>
+                <div class="info-label">Sisa Tagihan</div>
+                <div class="info-value" id="detailRemaining">Rp0</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="card panel">
+              <h2 class="panel-title">Histori Pembayaran</h2>
+              <div id="paymentHistory"></div>
+            </div>
+
+            <div class="card panel">
+              <h2 class="panel-title">Histori Perubahan</h2>
+              <div id="changeHistory"></div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="filter-popover" id="filterPopover" onclick="outsideFilter(event)">
+    <div class="filter-card">
+      <div class="section-head" style="margin-bottom:18px;">
+        <h2 class="panel-title">Filter</h2>
+        <button class="close" onclick="toggleFilter(false)">×</button>
+      </div>
+
+      <div class="filter-grid">
+        <div class="field">
+          <label>Sumber Data</label>
+          <div class="multi-select">
+            <button class="select-trigger" id="sourcesTrigger" onclick="toggleMultiMenu('sources')" type="button"><span>Semua</span><span>▾</span></button>
+            <div class="multi-menu" id="sourcesMenu">
+              <input id="sourceSearch" placeholder="Cari sumber data..." oninput="renderMultiOptions('sources')" />
+              <div class="multi-options" id="filterSources"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Pelanggan</label>
+          <div class="multi-select">
+            <button class="select-trigger" id="vendorsTrigger" onclick="toggleMultiMenu('vendors')" type="button"><span>Semua</span><span>▾</span></button>
+            <div class="multi-menu" id="vendorsMenu">
+              <input id="vendorSearch" placeholder="Cari pelanggan..." oninput="renderMultiOptions('vendors')" />
+              <div class="multi-options" id="filterVendors"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Periode</label>
+          <button class="date-trigger" id="filterPeriodLabel" onclick="openPeriodModal('filter')" type="button">
+            <span>01/07/2026 - 31/07/2026</span><span>▾</span>
+          </button>
+          <div class="status-note">Maksimal rentang periode satu tahun.</div>
+        </div>
+
+        <div class="field">
+          <label>Metode Pembayaran</label>
+          <select id="filterPaymentMethod">
+            <option value="all">Semua metode</option>
+            <option>Transfer Bank</option>
+            <option>Tunai</option>
+            <option>Virtual Account</option>
+            <option>Kartu Kredit</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Rekening Kas/Bank</label>
+          <div class="multi-select">
+            <button class="select-trigger" id="accountsTrigger" onclick="toggleMultiMenu('accounts')" type="button"><span>Semua</span><span>▾</span></button>
+            <div class="multi-menu" id="accountsMenu">
+              <input id="accountSearch" placeholder="Cari rekening..." oninput="renderMultiOptions('accounts')" />
+              <div class="multi-options" id="filterAccounts"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Produk dan Jasa</label>
+          <div class="multi-select">
+            <button class="select-trigger" id="productsTrigger" onclick="toggleMultiMenu('products')" type="button"><span>Semua</span><span>▾</span></button>
+            <div class="multi-menu" id="productsMenu">
+              <input id="productSearch" placeholder="Cari produk atau jasa..." oninput="renderMultiOptions('products')" />
+              <div class="multi-options" id="filterProducts"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Status Pembayaran</label>
+          <select id="filterPaymentStatus" onchange="syncDueFilterAvailability()">
+            <option value="all">Semua status pembayaran</option>
+            <option>Belum Dibayar</option>
+            <option>Dibayar Sebagian</option>
+            <option>Lunas</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Status Transaksi</label>
+          <select id="filterTransactionStatus">
+            <option value="all">Semua status transaksi</option>
+            <option>Draft</option>
+            <option>Terbit</option>
+            <option>Void</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Status Jatuh Tempo</label>
+          <select id="filterDueStatus">
+            <option value="all">Semua</option>
+            <option value="14">14 hari lagi</option>
+            <option value="7">7 hari lagi</option>
+            <option value="3">3 hari lagi</option>
+            <option value="tomorrow">Besok</option>
+            <option value="today">Hari ini</option>
+            <option value="overdue">Terlambat</option>
+          </select>
+          <div class="status-note" id="dueFilterNote">Aktif saat status pembayaran belum lunas.</div>
+        </div>
+
+        <div class="field">
+          <label>Pembuat Nota</label>
+          <div class="multi-select">
+            <button class="select-trigger" id="creatorsTrigger" onclick="toggleMultiMenu('creators')" type="button"><span>Semua</span><span>▾</span></button>
+            <div class="multi-menu" id="creatorsMenu">
+              <input id="creatorSearch" placeholder="Cari pembuat..." oninput="renderMultiOptions('creators')" />
+              <div class="multi-options" id="filterCreators"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="resetFilter()">Reset</button>
+        <button class="btn btn-primary" onclick="applyFilter()">Terapkan</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="notification-popover" id="notificationPopover">
+    <div class="notification-title">Notifikasi</div>
+
+    <div class="notification-item">
+      <div class="notification-dot">⏰</div>
+      <div>
+        <div class="notification-main">Reminder H-3 Jatuh Tempo</div>
+        <div class="notification-desc">
+          Tagihan <strong>BIL-0001</strong> dari PT Maju Mapan akan jatuh tempo dalam 3 hari.
+        </div>
+        <div class="notification-time">Hari ini, 09:00</div>
+      </div>
+    </div>
+
+    <div class="notification-item">
+      <div class="notification-dot">⚠️</div>
+      <div>
+        <div class="notification-main">Jatuh Tempo Hari Ini</div>
+        <div class="notification-desc">
+          Tagihan <strong>BIL-0006</strong> dari CV Sumber Rezeki jatuh tempo hari ini dan belum lunas.
+        </div>
+        <div class="notification-time">Hari ini, 08:00</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="journalModal">
+    <div class="modal large">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title">Jurnal Otomatis</div>
+          <div class="sub-text">Jurnal dibuat otomatis dari tagihan dan pembayaran.</div>
+        </div>
+        <button class="close" onclick="closeModal('journalModal')">×</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Akun</th>
+              <th>Debit</th>
+              <th>Kredit</th>
+            </tr>
+          </thead>
+          <tbody id="journalRows"></tbody>
+        </table>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="closeModal('journalModal')">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="paymentModal">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title">Catat Pembayaran</div>
+          <div class="sub-text" id="paymentInfo">Sisa tagihan: Rp0</div>
+        </div>
+        <button class="close" onclick="closeModal('paymentModal')">×</button>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>Tanggal Pembayaran <span class="required">*</span></label>
+          <input id="paymentDate" type="date" />
+        </div>
+
+        <div class="field">
+          <label>Rekening <span class="required">*</span></label>
+          <select id="paymentAccount">
+            <option>BCA Operasional</option>
+            <option>Mandiri Bisnis</option>
+            <option>BRI Utama</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Nominal <span class="required">*</span></label>
+          <input id="paymentAmount" type="number" />
+        </div>
+      </div>
+
+      <div style="height:14px"></div>
+
+      <div class="field">
+        <label>Nomor Referensi</label>
+        <input id="paymentRef" placeholder="Contoh: TRX-20260120-001" />
+      </div>
+
+      <div style="height:14px"></div>
+
+      <div class="upload">
+        📁 <span>Unggah bukti bayar</span>
+        <div class="sub-text">Format: JPG, PNG, PDF</div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('paymentModal')">Batal</button>
+        <button class="btn btn-primary" onclick="savePayment()">Simpan Pembayaran</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="cancelModal">
+    <div class="modal">
+      <div class="modal-title">Void transaksi?</div>
+      <div class="sub-text">
+        Transaksi ini akan masuk kelompok Void dan tidak dihitung sebagai hutang aktif. Aksi ini tetap tersimpan di histori perubahan.
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('cancelModal')">Kembali</button>
+        <button class="btn btn-danger" onclick="confirmCancel()">Ya, Void</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="vendorModal">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="vendorModalTitle">Detail Pelanggan</div>
+          <div class="sub-text" id="vendorModalSubtitle">Kontak pelanggan</div>
+        </div>
+        <button class="close" onclick="closeModal('vendorModal')">×</button>
+      </div>
+
+      <div class="detail-grid">
+        <div>
+          <div class="info-label">Nama Pelanggan</div>
+          <div class="info-value" id="vendorInfoName">-</div>
+        </div>
+        <div>
+          <div class="info-label">Telepon</div>
+          <div class="info-value" id="vendorInfoPhone">-</div>
+        </div>
+        <div>
+          <div class="info-label">Email</div>
+          <div class="info-value" id="vendorInfoEmail">-</div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="closeModal('vendorModal')">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="periodModal">
+    <div class="modal period">
+      <div class="period-head">
+        <h2 class="panel-title">Pilih Periode</h2>
+        <div class="header-actions">
+          <button class="btn btn-ghost" onclick="resetPeriodDraft()">Reset</button>
+          <button class="btn btn-soft" onclick="togglePeriodShortcuts()">Pilih ▾</button>
+        </div>
+      </div>
+
+      <div class="period-body">
+        <div>
+          <div class="period-field">
+            Periode Awal <span class="required">*</span>
+            <strong id="periodDraftStart">01/07/2026</strong>
+          </div>
+          <div class="calendar-title">‹ <span>Juli</span></div>
+          <div class="calendar-grid" id="calendarStart"></div>
+        </div>
+
+        <div>
+          <div class="period-field">
+            Periode Akhir <span class="required">*</span>
+            <strong id="periodDraftEnd">31/07/2026</strong>
+          </div>
+          <div class="calendar-title"><span>Juli</span> ›</div>
+          <div class="calendar-grid" id="calendarEnd"></div>
+        </div>
+
+        <div class="period-shortcuts" id="periodShortcuts">
+          <button onclick="setPeriodShortcut('today')">Hari ini</button>
+          <button onclick="setPeriodShortcut('year')">Tahun Ini</button>
+          <button onclick="setPeriodShortcut('week')">1 Minggu Terakhir</button>
+          <button onclick="setPeriodShortcut('month')">1 Bulan Terakhir</button>
+          <button onclick="setPeriodShortcut('quarter')">3 Bulan Terakhir</button>
+          <button onclick="setPeriodShortcut('custom')">Custom</button>
+        </div>
+      </div>
+
+      <div class="period-footer">
+        <button class="btn btn-ghost" onclick="closeModal('periodModal')">Batal</button>
+        <button class="btn btn-primary" onclick="applyPeriodDraft()">Terapkan</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="exportModal">
+    <div class="modal export-modal">
+      <div class="export-head">
+        <h2 class="panel-title">Pengaturan Ekspor</h2>
+        <button class="close" onclick="closeModal('exportModal')">×</button>
+      </div>
+
+      <div class="export-body">
+        <div class="export-option active" id="exportOptionAll" onclick="setExportScope('all')">
+          <div class="export-left"><span class="radio-dot"></span>Semua Data</div>
+          <div class="count-pill" id="exportAllCount">0 Item</div>
+        </div>
+        <div class="export-option" id="exportOptionFiltered" onclick="setExportScope('filtered')">
+          <div class="export-left"><span class="radio-dot"></span>Sesuai Filter dan Search</div>
+          <div class="count-pill" id="exportFilteredCount">0 Item</div>
+        </div>
+
+        <div class="export-format">
+          <div class="export-option active" id="exportFormatExcel" onclick="setExportFormat('excel')">
+            <div class="export-left"><span class="radio-dot"></span>Excel</div>
+            <div class="count-pill">.xlsx</div>
+          </div>
+          <div class="export-option" id="exportFormatPdf" onclick="setExportFormat('pdf')">
+            <div class="export-left"><span class="radio-dot"></span>PDF</div>
+            <div class="count-pill">.pdf</div>
+          </div>
+        </div>
+
+        <div class="export-summary" id="exportSummary">Data akan diekspor dalam file Excel.</div>
+      </div>
+
+      <div class="export-footer">
+        <button class="btn btn-ghost" onclick="closeModal('exportModal')">Batal</button>
+        <button class="btn btn-primary" onclick="exportNow()">Ekspor Sekarang</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">✅ <span id="toastText">Berhasil</span></div>
+
+  <script src="../js/modules/penjualan.js"></script>
+  <script src="../js/shared/transaction-prototype.js"></script>
+</body>
+</html>
