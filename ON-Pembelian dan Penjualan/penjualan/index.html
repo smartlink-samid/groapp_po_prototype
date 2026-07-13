@@ -70,8 +70,16 @@
         <section id="listPage" class="page active">
           <div class="card panel">
             <div class="section-head">
-              <h1 class="panel-title">Daftar Tagihan Penjualan</h1>
+              <h1 class="panel-title">Daftar Penjualan</h1>
               <div class="header-actions">
+                <label class="source-context">
+                  <span>Sumber aktif</span>
+                  <select id="activeSalesSource" aria-label="Sumber data aktif">
+                    <option>Perusahaan Kopi Nusantara</option>
+                    <option>Unit Retail</option>
+                    <option>Unit Roastery</option>
+                  </select>
+                </label>
                 <button class="btn btn-primary" onclick="openForm('create')">＋ Tambah Penjualan</button>
                 <button class="btn btn-green" onclick="openStandalonePayment()">＋ Tambah Pembayaran</button>
               </div>
@@ -113,7 +121,7 @@
             <div class="toolbar">
               <div class="toolbar-left">
                 <div class="search-wrap">
-                  <input class="search-input" id="searchInput" placeholder="Cari nomor transaksi atau pelanggan..." />
+                  <input class="search-input" id="searchInput" placeholder="Cari no. nota atau pelanggan..." />
                 </div>
                 <button class="btn btn-ghost" onclick="toggleFilter(true)">▾ Filter</button>
                 <button class="btn btn-ghost" onclick="resetFilter()">Reset</button>
@@ -178,7 +186,7 @@
                 <thead>
                   <tr>
                     <th class="check-cell"><input id="selectAll" type="checkbox" onchange="toggleSelectAll(this.checked)" /></th>
-                    <th>Nomor Transaksi</th>
+                    <th>No. Nota</th>
                     <th>Pelanggan</th>
                     <th>Tanggal Transaksi</th>
                     <th class="sortable" onclick="sortColumn('dueDate')" title="Merah: tanggal jatuh tempo sudah terlewati dan belum lunas. Kuning: jatuh tempo dalam 7 hari atau kurang dan belum lunas.">Jatuh Tempo <span class="sort-arrow" id="sort-dueDate">↕</span></th>
@@ -195,133 +203,13 @@
         </section>
 
         <section id="formPage" class="page">
-          <div class="card panel">
-            <div class="section-head">
-              <h1 class="panel-title" id="formTitle">Tambah Tagihan Penjualan</h1>
-              <button class="btn btn-ghost" onclick="showPage('list')">← Kembali</button>
-            </div>
-
-            <div class="form-grid">
-              <div class="field">
-                <label>Nomor Tagihan</label>
-                <input id="codeInput" class="disabled" disabled />
-              </div>
-
-              <div class="field">
-                <label>Pelanggan <span class="required">*</span></label>
-                <select id="vendorInput">
-                  <option>PT Maju Mapan</option>
-                  <option>CV Sumber Rezeki</option>
-                  <option>PT Bahan Kopi Nusantara</option>
-                  <option>UD Sinar Jaya</option>
-                  <option>PT Kemasan Prima</option>
-                </select>
-              </div>
-
-              <div class="field">
-                <label>Tanggal Transaksi <span class="required">*</span></label>
-                <input id="dateInput" type="date" onchange="applyTerm()" />
-              </div>
-
-              <div class="field">
-                <label>Tanggal Jatuh Tempo <span class="required">*</span></label>
-                <input id="dueInput" type="date" />
-              </div>
-
-              <div class="field">
-                <label>Termin Pembayaran</label>
-                <select id="termInput" onchange="applyTerm()">
-                  <option value="7">Net 7</option>
-                  <option value="14">Net 14</option>
-                  <option value="30" selected>Net 30</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </div>
-
-              <div class="field">
-                <label>Referensi Invoice Pelanggan</label>
-                <input id="vendorRefInput" placeholder="Contoh: INV/VDR/001" />
-              </div>
-            </div>
-          </div>
-
-          <div class="card panel">
-            <div class="section-head">
-              <h2 class="panel-title">Item Penjualan</h2>
-              <button class="btn btn-soft" onclick="addItem()">＋ Tambah Item</button>
-            </div>
-
-            <div class="item-section">
-              <div>
-                <div class="item-table">
-                  <div class="item-row item-head">
-                    <div>Produk/Jasa</div>
-                    <div>Deskripsi</div>
-                    <div>Qty</div>
-                    <div>Harga</div>
-                    <div>Subtotal</div>
-                    <div></div>
-                  </div>
-                  <div id="itemRows"></div>
-                </div>
-
-                <div style="height:18px"></div>
-
-                <div class="field">
-                  <label>Catatan</label>
-                  <textarea id="noteInput" placeholder="Tambahkan catatan untuk pelanggan atau tim internal..."></textarea>
-                </div>
-
-                <div class="field" style="margin-top:18px;">
-                  <label>Lampiran</label>
-                  <div class="upload">
-                    📁 <span>Unggah file</span> atau seret kesini
-                    <div class="sub-text">Format: JPG, PNG, WEBP, PDF, DOC, XLS, CSV, maks 3 file</div>
-                  </div>
-                </div>
-              </div>
-
-              <aside class="summary">
-                <div class="summary-row">
-                  <span>Subtotal</span>
-                  <strong id="subtotalText">Rp0</strong>
-                </div>
-
-                <div class="summary-row">
-                  <span>Diskon</span>
-                  <input class="mini-input" id="discountInput" type="number" value="0" oninput="calculateTotal()" />
-                </div>
-
-                <div class="summary-row">
-                  <span>Pajak</span>
-                  <input class="mini-input" id="taxInput" type="number" value="0" oninput="calculateTotal()" />
-                </div>
-
-                <div class="summary-row">
-                  <span>Biaya Tambahan</span>
-                  <input class="mini-input" id="feeInput" type="number" value="0" oninput="calculateTotal()" />
-                </div>
-
-                <div class="summary-total">
-                  <span>Total</span>
-                  <span id="totalText">Rp0</span>
-                </div>
-
-                <div style="height:18px"></div>
-                <button class="btn btn-ghost" style="width:100%;" onclick="submitInvoice('Draft')">Simpan Draft</button>
-                <div style="height:10px"></div>
-                <button class="btn btn-green" style="width:100%;" onclick="submitInvoice('Belum Dibayar')">Simpan Penjualan</button>
-                <div style="height:10px"></div>
-                <button class="btn btn-ghost" style="width:100%;" onclick="showPage('list')">Batalkan</button>
-              </aside>
-            </div>
-          </div>
+          <div id="salesWizard"></div>
         </section>
 
         <section id="detailPage" class="page">
           <div class="card panel">
             <div class="section-head">
-              <h1 class="panel-title">Detail Tagihan Penjualan</h1>
+              <h1 class="panel-title">Detail Penjualan</h1>
               <div style="display:flex; gap:10px; flex-wrap:wrap;">
                 <button class="btn btn-ghost" onclick="showPage('list')">← Kembali</button>
                 <button class="btn btn-ghost" onclick="openJournal()">Lihat Jurnal</button>
@@ -343,7 +231,7 @@
 
             <div class="detail-grid">
               <div>
-                <div class="info-label">Nomor Tagihan</div>
+                <div class="info-label">No. Nota</div>
                 <div class="info-value" id="detailCode">-</div>
               </div>
               <div>
@@ -848,5 +736,6 @@
 
   <script src="../js/modules/penjualan.js"></script>
   <script src="../js/shared/transaction-prototype.js"></script>
+  <script src="../js/modules/penjualan-wizard.js"></script>
 </body>
 </html>
