@@ -513,6 +513,12 @@ const today = new Date("2026-07-13T00:00:00");
       };
     }
 
+    function activeSourceData() {
+      const sources = optionSets().sources;
+      if (filters.sources.length === 1) return filters.sources[0];
+      return sources[0] || "Perusahaan Kopi Nusantara";
+    }
+
     function searchInputId(group) {
       return {
         sources: "sourceSearch",

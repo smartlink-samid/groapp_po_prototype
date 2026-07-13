@@ -72,8 +72,7 @@
   }
 
   function blankState(type) {
-    const sourceSelect = document.getElementById("activePurchaseSource");
-    const source = sourceSelect ? sourceSelect.value : "Perusahaan Kopi Nusantara";
+    const source = typeof activeSourceData === "function" ? activeSourceData() : "Perusahaan Kopi Nusantara";
     const base = {
       mode: type,
       step: 1,

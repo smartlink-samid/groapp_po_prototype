@@ -1559,34 +1559,6 @@
     }
 
     /* Sales creation wizard */
-    .source-context {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 5px 8px 5px 12px;
-      background: #fff;
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-    }
-
-    .source-context select {
-      height: 32px;
-      border: 0;
-      outline: 0;
-      background: #f7faf9;
-      border-radius: 8px;
-      padding: 0 9px;
-      color: var(--text);
-      font-weight: 600;
-      text-transform: none;
-      letter-spacing: 0;
-    }
-
     #formPage { max-width: 1460px; margin: 0 auto; }
     .wizard-top { padding-bottom: 0; overflow: hidden; }
     .wizard-heading { margin-bottom: 24px; }
@@ -1859,7 +1831,6 @@
     }
 
     @media (max-width: 900px) {
-      .source-context { align-items: stretch; flex-direction: column; }
       .wizard-stepper { overflow-x: auto; grid-template-columns: repeat(5,150px); justify-content: start; }
       .wizard-step { justify-content: flex-start; }
       .customer-layout, .transaction-extras, .preview-grid { grid-template-columns: 1fr; }
