@@ -5,7 +5,7 @@ const today = new Date("2026-07-13T00:00:00");
     let mode = "create";
     let selectedId = null;
     let itemCounter = 0;
-    let activeTransactionTab = "all";
+    let activeTransactionTab = "Terbit";
     let selectedIds = new Set();
     let periodTarget = "quick";
     let periodDraft = { startDate: defaultPeriodStart, endDate: defaultPeriodEnd };
@@ -14,6 +14,9 @@ const today = new Date("2026-07-13T00:00:00");
     let exportSelectedIds = null;
     let copySourceAfterVoid = null;
     let createSourceTemplate = null;
+    let currentListPage = 1;
+    const listPageSize = 8;
+    let searchDebounceTimer = null;
 
     const vendors = {
       "PT Maju Mapan": { phone: "021-5566-8800", email: "finance@majumapan.co.id" },
@@ -338,6 +341,14 @@ const today = new Date("2026-07-13T00:00:00");
       return date.toISOString().slice(0, 10);
     }
 
+    function displayDate(value) {
+      return new Intl.DateTimeFormat("id-ID", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      }).format(parseDate(value));
+    }
+
     function addDays(dateValue, days) {
       const date = parseDate(dateValue);
       date.setDate(date.getDate() + Number(days));
@@ -590,6 +601,8 @@ const today = new Date("2026-07-13T00:00:00");
       if (checked) selected.add(value);
       else selected.delete(value);
       filters.sources = [...selected];
+      currentListPage = 1;
+      selectedIds.clear();
       updateQuickSourceTrigger();
       renderMultiOptions("sources");
       renderList();
@@ -772,16 +785,117 @@ const today = new Date("2026-07-13T00:00:00");
 
     function applyQuickFilters() {
       filters.dueStatus = document.getElementById("quickDue").value;
+      currentListPage = 1;
       syncFilterControls();
       renderList();
     }
 
     function setTransactionTab(status) {
       activeTransactionTab = status;
+      currentListPage = 1;
       selectedIds.clear();
       document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
       const active = document.querySelector(`.tab-btn[data-tab="${status}"]`);
       if (active) active.classList.add("active");
+      renderList();
+    }
+
+    function activeFilterItems() {
+      const items = [];
+      const groupLabels = {
+        sources: "Sumber",
+        vendors: moduleLabels().contact,
+        accounts: "Akun",
+        products: "Produk",
+        creators: "Pembuat"
+      };
+      Object.entries(groupLabels).forEach(([group, label]) => {
+        filters[group].forEach(value => items.push({ group, value, label: `${label}: ${value}` }));
+      });
+
+      const valueLabels = {
+        paymentMethod: "Metode pembayaran",
+        paymentStatus: "Status pembayaran",
+        transactionStatus: "Status transaksi",
+        dueStatus: "Jatuh tempo"
+      };
+      Object.entries(valueLabels).forEach(([group, label]) => {
+        if (filters[group] !== "all") {
+          const value = group === "dueStatus" ? dueFilterLabel(filters[group]) : filters[group];
+          items.push({ group, value: filters[group], label: `${label}: ${value}` });
+        }
+      });
+
+      if (filters.startDate !== defaultPeriodStart || filters.endDate !== defaultPeriodEnd) {
+        items.push({
+          group: "period",
+          value: "period",
+          label: `Periode: ${formatDateId(filters.startDate)} - ${formatDateId(filters.endDate)}`
+        });
+      }
+
+      const search = document.getElementById("searchInput").value.trim();
+      if (search) items.push({ group: "search", value: search, label: `Pencarian: ${search}` });
+      return items;
+    }
+
+    function dueFilterLabel(value) {
+      return {
+        "14": "14 hari lagi",
+        "7": "7 hari lagi",
+        "3": "3 hari lagi",
+        tomorrow: "Besok",
+        today: "Hari ini",
+        overdue: "Terlambat"
+      }[value] || value;
+    }
+
+    function renderActiveFilters() {
+      const container = document.getElementById("activeFilters");
+      if (!container) return;
+      const items = activeFilterItems();
+      container.classList.toggle("show", items.length > 0);
+      container.innerHTML = items.length
+        ? `<span class="active-filters-label">Filter aktif</span>${items.map(item => {
+            const encodedValue = encodeURIComponent(item.value).replaceAll("'", "%27");
+            const safeLabel = escapeHtml(item.label);
+            return `
+              <span class="filter-chip">
+                ${safeLabel}
+                <button type="button" onclick="removeActiveFilter('${item.group}', '${encodedValue}')" aria-label="Hapus filter ${safeLabel}" title="Hapus filter">×</button>
+              </span>
+            `;
+          }).join("")}`
+        : "";
+      const resetButton = document.getElementById("resetFilterButton");
+      if (resetButton) resetButton.disabled = items.length === 0;
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[char]));
+    }
+
+    function removeActiveFilter(group, encodedValue) {
+      const value = decodeURIComponent(encodedValue);
+      if (["sources", "vendors", "accounts", "products", "creators"].includes(group)) {
+        filters[group] = filters[group].filter(item => item !== value);
+      } else if (group === "period") {
+        filters.startDate = defaultPeriodStart;
+        filters.endDate = defaultPeriodEnd;
+      } else if (group === "search") {
+        document.getElementById("searchInput").value = "";
+      } else {
+        filters[group] = "all";
+      }
+      currentListPage = 1;
+      selectedIds.clear();
+      syncFilterControls();
       renderList();
     }
 
@@ -804,6 +918,33 @@ const today = new Date("2026-07-13T00:00:00");
       document.getElementById("notificationPopover").classList.toggle("show");
     }
 
+    function toggleHeaderActions(event) {
+      event.stopPropagation();
+      const menu = document.getElementById("headerActionsMenu");
+      const button = event.currentTarget;
+      const isOpen = menu.classList.toggle("show");
+      button.setAttribute("aria-expanded", String(isOpen));
+    }
+
+    function closeHeaderActions() {
+      const menu = document.getElementById("headerActionsMenu");
+      const button = document.querySelector(".header-more-button");
+      if (menu) menu.classList.remove("show");
+      if (button) button.setAttribute("aria-expanded", "false");
+    }
+
+    function toggleMobileSidebar(force) {
+      const app = document.querySelector(".app");
+      const button = document.querySelector(".mobile-menu-toggle");
+      const shouldOpen = typeof force === "boolean" ? force : !app.classList.contains("mobile-nav-open");
+      app.classList.toggle("mobile-nav-open", shouldOpen);
+      document.body.classList.toggle("mobile-nav-lock", shouldOpen);
+      if (button) {
+        button.setAttribute("aria-expanded", String(shouldOpen));
+        button.setAttribute("aria-label", shouldOpen ? "Tutup navigasi" : "Buka navigasi");
+      }
+    }
+
     document.addEventListener("click", function(event) {
       const notif = document.getElementById("notificationPopover");
       if (notif && !notif.contains(event.target) && !event.target.classList.contains("bell")) {
@@ -820,6 +961,8 @@ const today = new Date("2026-07-13T00:00:00");
         document.querySelectorAll(".multi-menu").forEach(menu => menu.classList.remove("show"));
       }
 
+      if (!event.target.closest(".header-more-wrap")) closeHeaderActions();
+
       if (!event.target.closest(".period-shortcuts") && !event.target.closest(".period-head")) {
         const shortcuts = document.getElementById("periodShortcuts");
         if (shortcuts) shortcuts.classList.remove("show");
@@ -828,11 +971,12 @@ const today = new Date("2026-07-13T00:00:00");
 
     function showPage(page) {
       document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+      toggleMobileSidebar(false);
 
       if (page === "list") {
         document.getElementById("listPage").classList.add("active");
-        document.getElementById("pageTitle").textContent = `Manajemen ${moduleLabels().module}`;
-        document.getElementById("pageBreadcrumb").textContent = `Daftar ${moduleLabels().module}`;
+        document.getElementById("pageTitle").textContent = `Daftar ${moduleLabels().module}`;
+        document.getElementById("pageBreadcrumb").textContent = `Transaksi / ${moduleLabels().module}`;
         renderList();
       }
 
@@ -964,12 +1108,17 @@ const today = new Date("2026-07-13T00:00:00");
     function renderList() {
       const data = getFilteredInvoices(true);
       const statsData = getFilteredInvoices(false);
+      const totalPages = Math.max(1, Math.ceil(data.length / listPageSize));
+      currentListPage = Math.min(currentListPage, totalPages);
+      const firstIndex = (currentListPage - 1) * listPageSize;
+      const pageData = data.slice(firstIndex, firstIndex + listPageSize);
       renderTabCounts();
       renderStats(statsData);
       renderSortArrows();
+      renderActiveFilters();
 
       const rows = document.getElementById("invoiceRows");
-      rows.innerHTML = data.map(inv => {
+      rows.innerHTML = pageData.map(inv => {
         const status = paymentStatusOf(inv);
         const total = totalOf(inv);
         const remaining = remainingOf(inv);
@@ -981,21 +1130,21 @@ const today = new Date("2026-07-13T00:00:00");
 
         return `
           <tr>
-            <td class="check-cell"><input type="checkbox" ${checked} onchange="toggleRowSelection(${inv.id}, this.checked)" /></td>
+            <td class="check-cell"><input type="checkbox" ${checked} onchange="toggleRowSelection(${inv.id}, this.checked)" aria-label="Pilih ${inv.code}" /></td>
             <td>
               <button class="link-btn" onclick="openDetail(${inv.id})">${inv.code}</button>
             </td>
             <td>
               <button class="link-btn" onclick="openVendorDetail('${inv.vendor}')">${inv.vendor}</button>
             </td>
-            <td>${inv.date}</td>
-            <td class="due-cell ${tone}" title="${dueTooltip(inv)}">${inv.dueDate}</td>
+            <td>${displayDate(inv.date)}</td>
+            <td class="due-cell ${tone}" title="${dueTooltip(inv)}">${displayDate(inv.dueDate)}</td>
             <td class="amount">${money(total)}</td>
             <td>${money(remaining)}</td>
             <td><span class="badge ${statusClass(status)}">${status}</span></td>
             <td>
               <div class="kebab-wrap">
-                <button class="action-btn" onclick="toggleActionMenu(event, ${inv.id})">•••</button>
+                <button class="action-btn" onclick="toggleActionMenu(event, ${inv.id})" aria-label="Buka aksi ${inv.code}" title="Aksi transaksi">•••</button>
                 <div class="kebab-menu" id="action-menu-${inv.id}">
                   ${actions}
                 </div>
@@ -1006,9 +1155,55 @@ const today = new Date("2026-07-13T00:00:00");
       }).join("");
 
       if (!data.length) {
-        rows.innerHTML = `<tr><td colspan="9"><div class="empty">Data transaksi tidak ditemukan.</div></td></tr>`;
+        rows.innerHTML = `
+          <tr>
+            <td colspan="9">
+              <div class="table-empty">
+                <div class="table-empty-icon" aria-hidden="true">▤</div>
+                <h3>Transaksi tidak ditemukan</h3>
+                <p>Coba ubah kata pencarian, periode, atau filter yang sedang digunakan.</p>
+                <button class="btn btn-secondary" onclick="resetFilter()">Hapus filter</button>
+              </div>
+            </td>
+          </tr>
+        `;
       }
+      renderTableFooter(data.length, firstIndex, pageData.length, totalPages);
       renderBulkBar(data);
+    }
+
+    function renderListLoading() {
+      const rows = document.getElementById("invoiceRows");
+      rows.innerHTML = Array.from({ length: 6 }, () => `
+        <tr class="skeleton-row" aria-hidden="true">
+          <td class="check-cell"><span class="skeleton skeleton-check"></span></td>
+          ${Array.from({ length: 8 }, () => `<td><span class="skeleton skeleton-line"></span></td>`).join("")}
+        </tr>
+      `).join("");
+      const footer = document.getElementById("tableFooter");
+      if (footer) footer.innerHTML = `<span>Memuat transaksi...</span>`;
+    }
+
+    function renderTableFooter(total, firstIndex, visibleCount, totalPages) {
+      const footer = document.getElementById("tableFooter");
+      if (!footer) return;
+      const start = total ? firstIndex + 1 : 0;
+      const end = total ? firstIndex + visibleCount : 0;
+      footer.innerHTML = `
+        <span>Menampilkan ${start}-${end} dari ${total} transaksi</span>
+        <div class="pagination">
+          <button type="button" onclick="setListPage(${currentListPage - 1})" ${currentListPage === 1 ? "disabled" : ""} aria-label="Halaman sebelumnya" title="Halaman sebelumnya">‹</button>
+          <span class="pagination-status">${currentListPage} / ${totalPages}</span>
+          <button type="button" onclick="setListPage(${currentListPage + 1})" ${currentListPage === totalPages ? "disabled" : ""} aria-label="Halaman berikutnya" title="Halaman berikutnya">›</button>
+        </div>
+      `;
+    }
+
+    function setListPage(page) {
+      const totalPages = Math.max(1, Math.ceil(getFilteredInvoices(true).length / listPageSize));
+      currentListPage = Math.min(Math.max(1, page), totalPages);
+      renderList();
+      document.querySelector("#listPage .table-wrap")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function renderBulkBar(data) {
@@ -1045,7 +1240,19 @@ const today = new Date("2026-07-13T00:00:00");
       document.querySelectorAll(".kebab-menu").forEach(menu => {
         if (menu.id !== `action-menu-${id}`) menu.classList.remove("show");
       });
-      document.getElementById(`action-menu-${id}`).classList.toggle("show");
+      const menu = document.getElementById(`action-menu-${id}`);
+      const shouldOpen = !menu.classList.contains("show");
+      menu.classList.toggle("show", shouldOpen);
+      if (!shouldOpen) return;
+
+      const buttonRect = event.currentTarget.getBoundingClientRect();
+      const menuRect = menu.getBoundingClientRect();
+      const top = buttonRect.bottom + menuRect.height + 8 > window.innerHeight
+        ? buttonRect.top - menuRect.height - 4
+        : buttonRect.bottom + 4;
+      menu.style.position = "fixed";
+      menu.style.top = `${Math.max(8, top)}px`;
+      menu.style.right = `${Math.max(8, window.innerWidth - buttonRect.right)}px`;
     }
 
     function openDetailFromMenu(id) {
@@ -1950,6 +2157,7 @@ const today = new Date("2026-07-13T00:00:00");
       filters.paymentStatus = document.getElementById("filterPaymentStatus").value;
       filters.transactionStatus = document.getElementById("filterTransactionStatus").value;
       filters.dueStatus = document.getElementById("filterDueStatus").disabled ? "all" : document.getElementById("filterDueStatus").value;
+      currentListPage = 1;
       selectedIds.clear();
       syncFilterControls();
       toggleFilter(false);
@@ -1972,6 +2180,7 @@ const today = new Date("2026-07-13T00:00:00");
         sortKey: "dueDate",
         sortDir: "asc"
       };
+      currentListPage = 1;
       selectedIds.clear();
       document.getElementById("searchInput").value = "";
       ["quickSourceSearch", "sourceSearch", "vendorSearch", "accountSearch", "productSearch", "creatorSearch"].forEach(id => {
@@ -1990,8 +2199,12 @@ const today = new Date("2026-07-13T00:00:00");
     }
 
     document.getElementById("searchInput").addEventListener("input", function() {
-      selectedIds.clear();
-      renderList();
+      window.clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = window.setTimeout(() => {
+        currentListPage = 1;
+        selectedIds.clear();
+        renderList();
+      }, 300);
     });
 
 
@@ -2075,5 +2288,6 @@ const today = new Date("2026-07-13T00:00:00");
     applyPrototypeConfig();
     restoreSidebarState();
     syncFilterControls();
-    renderList();
+    renderListLoading();
+    window.setTimeout(renderList, 180);
   

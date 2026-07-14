@@ -53,28 +53,45 @@
       </div>
     </aside>
 
+    <button class="mobile-nav-backdrop" type="button" onclick="toggleMobileSidebar(false)" aria-label="Tutup navigasi"></button>
+
     <main class="main">
       <header class="topbar">
-        <div>
-          <div class="page-title" id="pageTitle">Manajemen Pembelian</div>
-          <div class="breadcrumb" id="pageBreadcrumb">Daftar Pembelian</div>
+        <div class="topbar-heading">
+          <button class="mobile-menu-toggle" type="button" onclick="toggleMobileSidebar()" aria-label="Buka navigasi" aria-expanded="false" title="Buka navigasi">☰</button>
+          <div>
+            <h1 class="page-title" id="pageTitle">Daftar Pembelian</h1>
+            <div class="breadcrumb" id="pageBreadcrumb">Transaksi / Pembelian</div>
+          </div>
         </div>
 
         <div class="top-actions">
-          <button class="bell" onclick="toggleNotification(event)">🔔</button>
+          <button class="bell" onclick="toggleNotification(event)" aria-label="Buka notifikasi" title="Notifikasi">🔔</button>
           <div class="avatar">SM</div>
         </div>
       </header>
 
       <section class="content">
         <section id="listPage" class="page active">
-          <div class="card panel">
-            <div class="section-head">
-              <h1 class="panel-title">Daftar Pembelian</h1>
+          <div class="card panel list-panel">
+            <div class="toolbar">
+              <div class="toolbar-left">
+                <div class="search-wrap">
+                  <input class="search-input" id="searchInput" placeholder="Cari no. nota atau vendor..." aria-label="Cari nomor nota atau vendor" />
+                </div>
+                <button class="btn btn-secondary" onclick="toggleFilter(true)">▾ Filter</button>
+                <button class="btn btn-neutral" id="resetFilterButton" onclick="resetFilter()" disabled>Reset</button>
+                <button class="btn btn-secondary" onclick="openExportModal('filtered')">⇩ Export</button>
+              </div>
               <div class="header-actions">
-                <button class="btn btn-primary" onclick="openForm('create')">＋ Tambah Pembelian</button>
-                <button class="btn btn-soft" onclick="quickAction('OCR')">▣ Tambah melalui OCR</button>
-                <button class="btn btn-green" onclick="openStandalonePayment()">＋ Tambah Pembayaran</button>
+                <button class="btn btn-primary" onclick="openForm('create')">+ Tambah Pembelian</button>
+                <div class="header-more-wrap">
+                  <button class="btn btn-secondary header-more-button" type="button" onclick="toggleHeaderActions(event)" aria-label="Buka aksi lainnya" aria-expanded="false" title="Aksi lainnya">•••</button>
+                  <div class="header-more-menu" id="headerActionsMenu">
+                    <button type="button" onclick="quickAction('OCR'); closeHeaderActions()">Tambah melalui OCR</button>
+                    <button type="button" onclick="openStandalonePayment(); closeHeaderActions()">Tambah Pembayaran</button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -111,16 +128,7 @@
               </div>
             </div>
 
-            <div class="toolbar">
-              <div class="toolbar-left">
-                <div class="search-wrap">
-                  <input class="search-input" id="searchInput" placeholder="Cari no. nota atau vendor..." />
-                </div>
-                <button class="btn btn-ghost" onclick="toggleFilter(true)">▾ Filter</button>
-                <button class="btn btn-ghost" onclick="resetFilter()">Reset</button>
-                <button class="btn btn-ghost" onclick="openExportModal('filtered')">⇩ Export</button>
-              </div>
-            </div>
+            <div class="active-filters" id="activeFilters" aria-live="polite"></div>
 
             <div class="stats">
               <div class="stat">
@@ -157,8 +165,8 @@
             </div>
 
             <div class="tabs" id="statusTabs">
-              <button class="tab-btn active" data-tab="all" onclick="setTransactionTab('all')">Semua <span id="tabAllCount">0</span></button>
-              <button class="tab-btn" data-tab="Terbit" onclick="setTransactionTab('Terbit')">Terbit <span id="tabTerbitCount">0</span></button>
+              <button class="tab-btn" data-tab="all" onclick="setTransactionTab('all')">Semua <span id="tabAllCount">0</span></button>
+              <button class="tab-btn active" data-tab="Terbit" onclick="setTransactionTab('Terbit')">Terbit <span id="tabTerbitCount">0</span></button>
               <button class="tab-btn" data-tab="Draft" onclick="setTransactionTab('Draft')">Draft <span id="tabDraftCount">0</span></button>
               <button class="tab-btn" data-tab="Void" onclick="setTransactionTab('Void')">Void <span id="tabVoidCount">0</span></button>
             </div>
@@ -178,7 +186,7 @@
               <table>
                 <thead>
                   <tr>
-                    <th class="check-cell"><input id="selectAll" type="checkbox" onchange="toggleSelectAll(this.checked)" /></th>
+                    <th class="check-cell"><input id="selectAll" type="checkbox" onchange="toggleSelectAll(this.checked)" aria-label="Pilih semua transaksi" /></th>
                     <th>No. Nota</th>
                     <th>Vendor</th>
                     <th>Tanggal Transaksi</th>
@@ -192,6 +200,7 @@
                 <tbody id="invoiceRows"></tbody>
               </table>
             </div>
+            <div class="table-footer" id="tableFooter" aria-live="polite"></div>
           </div>
         </section>
 
